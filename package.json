@@ -1,0 +1,12 @@
+{
+  "name": "thoughts-and-titles",
+  "private": true,
+  "scripts": {
+    "start": "npm run dev --prefix frontend",
+    "dev": "npm run dev --prefix frontend",
+    "build": "npm run build --prefix frontend",
+    "lint": "npm run lint --prefix frontend",
+    "preview": "npm run preview --prefix frontend",
+    "backend": "cd backend && ./venv/bin/python app.py"
+  }
+}
