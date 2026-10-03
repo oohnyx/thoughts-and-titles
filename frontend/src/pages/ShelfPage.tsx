@@ -104,6 +104,7 @@ function ShelfPage() {
         director: details.director ?? current.director,
         genre: details.genre ?? current.genre,
       }));
+      setNewDesc((current) => current || details.overview || "");
     } catch {
       setPosterSearchError(
         "Poster selected, but director and genre could not be filled automatically.",
@@ -466,7 +467,7 @@ function ShelfPage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3">
               {filtered.map((item) => (
                 <ItemCard
                   key={item.id}

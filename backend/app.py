@@ -153,7 +153,13 @@ def get_movie_details(tmdb_id):
         genre["name"] for genre in movie.get("genres", [])
     ) or None
 
-    return jsonify({"director": director, "genre": genre})
+    return jsonify(
+        {
+            "director": director,
+            "genre": genre,
+            "overview": movie.get("overview") or None,
+        }
+    )
 
 
 @app.route("/items", methods=["POST"])

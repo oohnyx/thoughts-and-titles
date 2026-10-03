@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
-import { deleteItem, fetchItem, updateItem } from "../api"
-import type { BaseItem, Item, MovieEntry } from "../types"
+import { deleteItem, fetchItem, fetchMovieDetails, searchMovies, updateItem } from "../api"
+import type { BaseItem, Item, MovieEntry, MovieSearchResult } from "../types"
 
 type StarRatingProps = {
     rating: number | null
@@ -39,6 +39,8 @@ const TYPE_CONFIG = {
   movie: { bg: "bg-orange-50", emoji: "🎬", color: "text-orange-500" },
 }
 
+const TMDB_POSTER_URL = "https://image.tmdb.org/t/p/w500"
+
 type MovieJournalField = Exclude<keyof MovieEntry, keyof BaseItem>
 
 const MOVIE_JOURNAL_FIELDS: Array<{
@@ -70,6 +72,12 @@ function DetailPage() {
   const [editing, setEditing] = useState(false)  // toggle edit mode on/off
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [showPosterSearch, setShowPosterSearch] = useState(false)
+  const [posterSearchYear, setPosterSearchYear] = useState("")
+  const [posterResults, setPosterResults] = useState<MovieSearchResult[]>([])
+  const [searchingPosters, setSearchingPosters] = useState(false)
+  const [savingPoster, setSavingPoster] = useState(false)
+  const [posterSearchError, setPosterSearchError] = useState("")
 
   useEffect(() => {
     async function loadItem() {
@@ -82,6 +90,9 @@ function DetailPage() {
         const fetchedItem = await fetchItem(itemId)
         setItem(fetchedItem)
         setDraftItem(fetchedItem)
+        if (fetchedItem.type === "movie") {
+          setPosterSearchYear(fetchedItem.releaseYear?.toString() ?? "")
+        }
       } catch {
         setError("Could not load this item.")
       } finally {
@@ -133,6 +144,68 @@ function DetailPage() {
       if (!current || current.type !== "movie") return current
       return { ...current, [field]: value }
     })
+  }
+
+  async function handlePosterSearch() {
+    if (!item || item.type !== "movie") return
+
+    setSearchingPosters(true)
+    setPosterSearchError("")
+    setPosterResults([])
+
+    try {
+      const results = await searchMovies(item.title, posterSearchYear)
+      setPosterResults(results)
+      if (results.length === 0) {
+        setPosterSearchError("No poster matches found. Try another release year.")
+      }
+    } catch {
+      setPosterSearchError("Could not search for posters. Is Flask running?")
+    } finally {
+      setSearchingPosters(false)
+    }
+  }
+
+  async function selectExistingPoster(result: MovieSearchResult) {
+    if (!item || item.type !== "movie") return
+
+    setSavingPoster(true)
+    setPosterSearchError("")
+
+    try {
+      let details: {
+        director: string | null
+        genre: string | null
+        overview: string | null
+      } | null = null
+      try {
+        details = await fetchMovieDetails(result.tmdbId)
+      } catch {
+        // A poster can still be saved if TMDB's optional metadata request fails.
+      }
+
+      const updatedItem = await updateItem(item.id, {
+        tmdbId: result.tmdbId,
+        posterPath: result.posterPath,
+        releaseYear: result.releaseYear ?? undefined,
+        director: details?.director ?? item.director,
+        genre: details?.genre ?? item.genre,
+        description: item.description || details?.overview || "",
+      })
+      setItem(updatedItem)
+      setDraftItem(updatedItem)
+      setPosterSearchYear(result.releaseYear?.toString() ?? "")
+      setPosterResults([])
+      setShowPosterSearch(false)
+
+      if (!details) {
+        setPosterSearchError("Poster saved. Add director and genre manually if needed.")
+      }
+    } catch {
+      setPosterSearchError("Could not save this poster.")
+    } finally {
+      setSavingPoster(false)
+    }
   }
 
   async function handleToggleStatus() {
@@ -187,6 +260,9 @@ function DetailPage() {
   }
 
   const config = TYPE_CONFIG[item.type]
+  const posterUrl = item.type === "movie" && item.posterPath
+    ? `${TMDB_POSTER_URL}${item.posterPath}`
+    : null
 
   return (
     <div className="min-h-screen bg-stone-100 p-6 font-sans">
@@ -210,9 +286,17 @@ function DetailPage() {
 
           {/* ── HERO HEADER ── */}
           <div className={`${config.bg} p-6 flex items-center gap-5`}>
-            <div className="bg-white rounded-xl w-16 h-16 flex items-center justify-center text-3xl border border-stone-100 shadow-sm">
-              {config.emoji}
-            </div>
+            {posterUrl ? (
+              <img
+                src={posterUrl}
+                alt={`${item.title} poster`}
+                className="h-24 w-16 rounded-lg border border-stone-100 object-cover shadow-sm"
+              />
+            ) : (
+              <div className="bg-white rounded-xl w-16 h-16 flex items-center justify-center text-3xl border border-stone-100 shadow-sm">
+                {config.emoji}
+              </div>
+            )}
             <div>
               <h1 className="text-xl font-bold text-gray-900">{item.title}</h1>
               <p className={`text-sm ${config.color} mt-0.5`}>{item.type}</p>
@@ -294,7 +378,81 @@ function DetailPage() {
 
             {item.type === "movie" && (
               <div className="border-t border-orange-100 pt-6">
-                <p className="text-xs uppercase tracking-widest text-orange-500 mb-4">Movie journal</p>
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <p className="text-xs uppercase tracking-widest text-orange-500">Movie journal</p>
+                  {!editing && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPosterSearch((showing) => !showing)
+                        setPosterResults([])
+                        setPosterSearchError("")
+                      }}
+                      className="text-xs font-medium text-orange-600 hover:text-orange-800"
+                    >
+                      {showPosterSearch
+                        ? "Cancel poster search"
+                        : item.posterPath ? "Change poster" : "Add poster"}
+                    </button>
+                  )}
+                </div>
+
+                {showPosterSearch && !editing && (
+                  <div className="mb-5 rounded-lg border border-orange-100 bg-orange-50/50 p-3">
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        type="number"
+                        min="1888"
+                        max="2100"
+                        value={posterSearchYear}
+                        onChange={(e) => setPosterSearchYear(e.target.value)}
+                        placeholder="Release year (optional)"
+                        className="rounded-lg border border-stone-200 px-3 py-2 text-sm outline-none focus:border-gray-400 sm:w-48"
+                      />
+                      <button
+                        type="button"
+                        onClick={handlePosterSearch}
+                        disabled={searchingPosters || savingPoster}
+                        className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-medium text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-orange-300"
+                      >
+                        {searchingPosters ? "Searching…" : "Find poster"}
+                      </button>
+                    </div>
+
+                    {posterSearchError && (
+                      <p className="mt-2 text-sm text-red-500">{posterSearchError}</p>
+                    )}
+
+                    {posterResults.length > 0 && (
+                      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        {posterResults.map((result) => (
+                          <button
+                            key={result.tmdbId}
+                            type="button"
+                            onClick={() => selectExistingPoster(result)}
+                            disabled={savingPoster}
+                            className="overflow-hidden rounded-lg border border-stone-200 text-left hover:border-orange-300 disabled:cursor-wait"
+                          >
+                            <img
+                              src={`${TMDB_POSTER_URL}${result.posterPath}`}
+                              alt={`${result.title} poster`}
+                              className="aspect-[2/3] w-full object-cover"
+                            />
+                            <span className="block p-2 text-xs font-medium text-gray-700">
+                              {result.title}
+                              {result.releaseYear ? ` (${result.releaseYear})` : ""}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {savingPoster && (
+                      <p className="mt-2 text-xs text-orange-600">Saving poster and movie details…</p>
+                    )}
+                  </div>
+                )}
+
                 <div className="grid gap-4 sm:grid-cols-2">
                   {MOVIE_JOURNAL_FIELDS.map((field) => {
                     const value = editing && draftItem?.type === "movie"

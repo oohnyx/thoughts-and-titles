@@ -117,6 +117,7 @@ export async function searchMovies(
 type MovieDetails = {
     director: string | null
     genre: string | null
+    overview: string | null
 }
 
 export async function fetchMovieDetails(tmdbId: number): Promise<MovieDetails> {
