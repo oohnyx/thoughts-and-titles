@@ -15,46 +15,60 @@ const TYPE_CONFIG = {
   movie: { bg: "bg-orange-50",  emoji: "🎬" },
 }
 
+const TMDB_POSTER_URL = "https://image.tmdb.org/t/p/w342"
+
 function ItemCard({ item, onMarkDone, onDelete, onClick }: ItemCardProps) {
   const config = TYPE_CONFIG[item.type]
+  const posterUrl = item.type === "movie" && item.posterPath
+    ? `${TMDB_POSTER_URL}${item.posterPath}`
+    : null
 
   return (
     <div 
         onClick={onClick}
-        className="bg-white rounded-xl border border-stone-200 overflow-hidden cursor-pointer hover:-translate-y-1 transition-transform"
+        className="bg-white rounded-2xl border border-stone-200 overflow-hidden cursor-pointer hover:-translate-y-1 hover:shadow-md transition-all"
     >
+      <div className="relative p-2 pb-0">
+        {posterUrl ? (
+          <img
+            src={posterUrl}
+            alt={`${item.title} poster`}
+            className="aspect-[2/3] w-full rounded-xl object-cover bg-stone-100"
+          />
+        ) : (
+          <div className={`${config.bg} aspect-[2/3] rounded-xl flex items-center justify-center text-5xl`}>
+            {config.emoji}
+          </div>
+        )}
 
-      {/* colored header with emoji */}
-      <div className={`${config.bg} h-24 flex items-center justify-center text-4xl`}>
-        {config.emoji}
+        <span className={`absolute right-4 top-4 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide shadow-sm ${
+          item.status === "done"
+            ? "bg-emerald-500 text-white"
+            : "bg-white/90 text-gray-500"
+        }`}>
+          {item.status === "done" ? "Done" : "Up next"}
+        </span>
       </div>
 
-      <div className="p-3">
-
-        {/* title — truncates with "..." if too long */}
-        <p className="font-semibold text-sm text-gray-900 truncate mb-2">
-          {item.title}
-        </p>
-
-        {/* badges row */}
-        <div className="flex items-center gap-1.5 flex-wrap mb-2">
-          <span className={`text-xs px-2 py-0.5 rounded-full font-medium
-            ${item.type === "book"
-              ? "bg-purple-100 text-purple-700"
-              : "bg-orange-100 text-orange-700"
-            }`}>
-            {item.type}
-          </span>
-
-          {item.status === "done"
-            ? <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-emerald-100 text-emerald-700">Done</span>
-            : <span className="text-xs text-gray-400">Up next</span>
-          }
+      <div className="p-3 pt-3">
+        <div className="flex items-start justify-between gap-2">
+          <p className="line-clamp-2 font-semibold text-sm leading-snug text-gray-900">
+            {item.title}
+          </p>
+          {item.type === "movie" && item.releaseYear && (
+            <span className="shrink-0 text-sm font-medium text-gray-500">
+              {item.releaseYear}
+            </span>
+          )}
         </div>
+
+        <p className="mt-1 min-h-5 text-xs text-gray-400">
+          {item.type === "movie" ? item.director || item.genre || "Movie" : "Book"}
+        </p>
 
         {/* star rating — only shows if rated */}
         {item.rating && (
-          <div className="flex mb-2">
+          <div className="flex mt-2">
             {[...Array(5)].map((_, i) => (
               // Array(5) creates an empty array of 5 slots — we use it just to loop 5 times
               <span key={i} className={i < item.rating! ? "text-amber-400" : "text-gray-200"}>
@@ -67,8 +81,8 @@ function ItemCard({ item, onMarkDone, onDelete, onClick }: ItemCardProps) {
         )}
 
         {/* description preview — only shows if there is one */}
-        {item.description && (
-          <p className="text-xs text-gray-400 italic line-clamp-2">
+        {item.type === "book" && item.description && (
+          <p className="mt-2 text-xs text-gray-400 italic line-clamp-2">
             "{item.description}"
             {/* line-clamp-2 is a Tailwind class that cuts text to 2 lines with "..." */}
           </p>
