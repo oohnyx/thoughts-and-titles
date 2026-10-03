@@ -21,6 +21,16 @@ export type MovieEntry = BaseItem & {
   bestMoment?: string;
   worstMoment?: string;
   dateWatched?: string;
+  tmdbId?: number;
+  posterPath?: string;
+  releaseYear?: number;
+};
+
+export type MovieSearchResult = {
+  tmdbId: number;
+  title: string;
+  releaseYear: number | null;
+  posterPath: string;
 };
 
 export type BookEntry = BaseItem & {

@@ -1,4 +1,4 @@
-import type { BaseItem, Item, MovieEntry } from "./types"
+import type { BaseItem, Item, MovieEntry, MovieSearchResult } from "./types"
 
 // this is the base URL of our Flask backend
 // every API call will start with this
@@ -18,6 +18,9 @@ type ApiItem = Omit<BaseItem, "description" | "review"> & {
     best_moment: string | null
     worst_moment: string | null
     date_watched: string | null
+    tmdb_id: number | null
+    poster_path: string | null
+    release_year: number | null
 }
 
 function normalizeItem(item: ApiItem): Item {
@@ -45,6 +48,9 @@ function normalizeItem(item: ApiItem): Item {
             bestMoment: item.best_moment ?? undefined,
             worstMoment: item.worst_moment ?? undefined,
             dateWatched: item.date_watched ?? undefined,
+            tmdbId: item.tmdb_id ?? undefined,
+            posterPath: item.poster_path ?? undefined,
+            releaseYear: item.release_year ?? undefined,
         }
     }
 
@@ -83,6 +89,44 @@ export async function fetchItems() {
     const data: ApiItem[] = await response.json()
     return data.map(normalizeItem)
     // .json() reads the response body and converts it from JSON text into a JS object
+}
+
+// SEARCH MOVIE POSTER
+
+export async function searchMovies(
+    query: string,
+    year?: string,
+): Promise<MovieSearchResult[]> {
+    const params = new URLSearchParams({ query });
+
+    if (year?.trim()) {
+        params.set("year", year.trim());
+    }
+
+    const response = await fetch(
+        `${BASE_URL}/movie-search?${params.toString()}`,
+    );
+
+    if (!response.ok) {
+        throw new Error("Failed to search for movies.");
+    }
+
+    return response.json();
+}
+
+type MovieDetails = {
+    director: string | null
+    genre: string | null
+}
+
+export async function fetchMovieDetails(tmdbId: number): Promise<MovieDetails> {
+    const response = await fetch(`${BASE_URL}/movie-details/${tmdbId}`)
+
+    if (!response.ok) {
+        throw new Error("Failed to fetch movie details.")
+    }
+
+    return response.json()
 }
 
 // GET ONE ITEM BY ID

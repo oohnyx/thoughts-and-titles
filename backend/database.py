@@ -18,6 +18,9 @@ def migrate_db(conn):
         "best_moment": "TEXT",
         "worst_moment": "TEXT",
         "date_watched": "TEXT",
+        "tmdb_id": "INTEGER",
+        "poster_path": "TEXT",
+        "release_year": "INTEGER",
     }
 
     existing_columns = {
@@ -30,10 +33,18 @@ def migrate_db(conn):
                 f"ALTER TABLE items ADD COLUMN {column_name} {column_type}"
             )
 
-    # The cast prompt is no longer part of a movie entry. Removing this column
-    # also removes any old cast values saved in the local database.
-    if "cast" in existing_columns:
-        conn.execute("ALTER TABLE items DROP COLUMN cast")
+    # These are no longer part of a movie entry. Removing these column
+    # also removes any old values saved in the local database.
+    obsolete_columns = (
+        "cast",
+        "tmdbId",
+        "posterPath",
+        "releaseYear",
+    )
+
+    for column_name in obsolete_columns:
+        if column_name in existing_columns:
+            conn.execute(f"ALTER TABLE items DROP COLUMN {column_name}")
 
 def init_db():
     conn = get_db()
