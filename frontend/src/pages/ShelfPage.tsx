@@ -5,8 +5,8 @@ import FilterTabs from "../components/FilterTabs";
 import ItemCard from "../components/ItemCard";
 import { useNavigate } from "react-router-dom"; // NEW — lets us navigate to another page
 import type { FilterType } from "../components/FilterTabs";
-import type { Item } from "../types";
-import { fetchItems, createItem, deleteItem, updateItem } from "../api"; // import API functions
+import type { Item, MovieSearchResult } from "../types";
+import { fetchItems, createItem, deleteItem, fetchMovieDetails, searchMovies, updateItem } from "../api"; // import API functions
 
 const EMPTY_MOVIE_FIELDS = {
   director: "",
@@ -20,6 +20,8 @@ const EMPTY_MOVIE_FIELDS = {
   worstMoment: "",
   dateWatched: "",
 };
+
+const TMDB_POSTER_URL = "https://image.tmdb.org/t/p/w342";
 
 function ShelfPage() {
   const navigate = useNavigate(); // gives us a function to jump to a different URL
@@ -36,6 +38,12 @@ function ShelfPage() {
   const [newRating, setNewRating] = useState("");
   const [newReview, setNewReview] = useState("");
   const [newMovieFields, setNewMovieFields] = useState(EMPTY_MOVIE_FIELDS);
+  const [posterSearchYear, setPosterSearchYear] = useState("");
+  const [posterResults, setPosterResults] = useState<MovieSearchResult[]>([]);
+  const [selectedPoster, setSelectedPoster] = useState<MovieSearchResult | null>(null);
+  const [searchingPosters, setSearchingPosters] = useState(false);
+  const [loadingMovieDetails, setLoadingMovieDetails] = useState(false);
+  const [posterSearchError, setPosterSearchError] = useState("");
 
   function updateNewMovieField(
     field: keyof typeof EMPTY_MOVIE_FIELDS,
@@ -51,6 +59,59 @@ function ShelfPage() {
     setNewRating("");
     setNewReview("");
     setNewMovieFields(EMPTY_MOVIE_FIELDS);
+    setPosterSearchYear("");
+    setPosterResults([]);
+    setSelectedPoster(null);
+    setPosterSearchError("");
+  }
+
+  async function handlePosterSearch() {
+    if (!newTitle.trim()) {
+      setPosterSearchError("Enter a movie title before searching for a poster.");
+      return;
+    }
+
+    setSearchingPosters(true);
+    setPosterSearchError("");
+    setPosterResults([]);
+
+    try {
+      const results = await searchMovies(newTitle, posterSearchYear);
+      setPosterResults(results);
+
+      if (results.length === 0) {
+        setPosterSearchError("No poster matches found. Try another title or year.");
+      }
+    } catch {
+      setPosterSearchError("Could not search for posters. Is Flask running?");
+    } finally {
+      setSearchingPosters(false);
+    }
+  }
+
+  async function selectPoster(result: MovieSearchResult) {
+    setSelectedPoster(result);
+    setNewTitle(result.title);
+    setPosterSearchYear(result.releaseYear?.toString() ?? "");
+    setPosterResults([]);
+    setPosterSearchError("");
+
+    try {
+      setLoadingMovieDetails(true);
+      const details = await fetchMovieDetails(result.tmdbId);
+      setNewMovieFields((current) => ({
+        ...current,
+        director: details.director ?? current.director,
+        genre: details.genre ?? current.genre,
+      }));
+      setNewDesc((current) => current || details.overview || "");
+    } catch {
+      setPosterSearchError(
+        "Poster selected, but director and genre could not be filled automatically.",
+      );
+    } finally {
+      setLoadingMovieDetails(false);
+    }
   }
 
   // LOAD ITEMS FROM FLASK ON PAGE LOAD
@@ -77,6 +138,11 @@ function ShelfPage() {
     e.preventDefault();
     if (!newTitle.trim()) return;
 
+    if (newType === "movie" && !selectedPoster) {
+      setError("Choose a poster match before adding a movie.");
+      return;
+    }
+
     try {
       const created = await createItem({
         title: newTitle,
@@ -84,7 +150,12 @@ function ShelfPage() {
         description: newDesc,
         rating: newRating ? Number(newRating) : undefined,
         review: newReview,
-        ...(newType === "movie" ? newMovieFields : {}),
+        ...(newType === "movie" ? {
+          ...newMovieFields,
+          tmdbId: selectedPoster?.tmdbId,
+          posterPath: selectedPoster?.posterPath,
+          releaseYear: selectedPoster?.releaseYear ?? undefined,
+        } : {}),
       });
 
       // Flask returns new item with its real database ID
@@ -159,13 +230,24 @@ function ShelfPage() {
               type="text"
               placeholder="Title (e.g. Inception, Dune...)"
               value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
+              onChange={(e) => {
+                setNewTitle(e.target.value);
+                setSelectedPoster(null);
+              }}
               autoFocus
               className="border border-stone-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400"
             />
             <select
               value={newType}
-              onChange={(e) => setNewType(e.target.value as "book" | "movie")}
+              onChange={(e) => {
+                const type = e.target.value as "book" | "movie";
+                setNewType(type);
+                if (type === "book") {
+                  setSelectedPoster(null);
+                  setPosterResults([]);
+                  setPosterSearchError("");
+                }
+              }}
               className="border border-stone-200 rounded-lg px-3 py-2 text-sm outline-none"
             >
               <option value="movie">Movie</option>
@@ -177,6 +259,82 @@ function ShelfPage() {
                 <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-orange-600">
                   Movie journal
                 </p>
+                <div className="mb-4 rounded-lg border border-orange-100 bg-white p-3">
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <input
+                      type="number"
+                      min="1888"
+                      max="2100"
+                      placeholder="Release year (optional)"
+                      value={posterSearchYear}
+                      onChange={(e) => {
+                        setPosterSearchYear(e.target.value);
+                        setSelectedPoster(null);
+                      }}
+                      className="border border-stone-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400 sm:w-48"
+                    />
+                    <button
+                      type="button"
+                      onClick={handlePosterSearch}
+                      disabled={searchingPosters}
+                      className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-orange-300"
+                    >
+                      {searchingPosters ? "Searching…" : "Find poster"}
+                    </button>
+                  </div>
+
+                  {posterSearchError && (
+                    <p className="mt-2 text-sm text-red-500">{posterSearchError}</p>
+                  )}
+
+                  {selectedPoster && (
+                    <div className="mt-3 flex items-center gap-3 rounded-lg bg-orange-50 p-2">
+                      <img
+                        src={`${TMDB_POSTER_URL}${selectedPoster.posterPath}`}
+                        alt={`${selectedPoster.title} poster`}
+                        className="h-16 w-11 rounded object-cover shadow-sm"
+                      />
+                      <div className="text-sm text-orange-800">
+                        Selected: <span className="font-semibold">{selectedPoster.title}</span>
+                        {selectedPoster.releaseYear ? ` (${selectedPoster.releaseYear})` : ""}
+                        {loadingMovieDetails && (
+                          <p className="mt-1 text-xs text-orange-600">Filling director and genre…</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {posterResults.length > 0 && (
+                    <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {posterResults.map((result) => {
+                        const isSelected = selectedPoster?.tmdbId === result.tmdbId;
+
+                        return (
+                          <button
+                            key={result.tmdbId}
+                            type="button"
+                            onClick={() => selectPoster(result)}
+                            className={`overflow-hidden rounded-lg border text-left transition-colors ${
+                              isSelected
+                                ? "border-orange-500 ring-2 ring-orange-200"
+                                : "border-stone-200 hover:border-orange-300"
+                            }`}
+                          >
+                            <img
+                              src={`${TMDB_POSTER_URL}${result.posterPath}`}
+                              alt={`${result.title} poster`}
+                              className="aspect-[2/3] w-full object-cover"
+                            />
+                            <span className="block p-2 text-xs font-medium text-gray-700">
+                              {result.title}
+                              {result.releaseYear ? ` (${result.releaseYear})` : ""}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <input
                     type="text"
@@ -309,7 +467,7 @@ function ShelfPage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3">
               {filtered.map((item) => (
                 <ItemCard
                   key={item.id}
