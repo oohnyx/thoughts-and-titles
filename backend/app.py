@@ -8,6 +8,21 @@ CORS(app, origins=["http://localhost:5173", "http://localhost:5174"])
 
 init_db()
 
+#Each key is the name Flask expects from the frontend. 
+#Each value is the database column that stores it.
+
+MOVIE_FIELDS = {
+    "director": "director",
+    "favoriteCharacter": "favorite_character",
+    "leastFavoriteCharacter": "least_favorite_character",
+    "sumUpInOneWord": "sum_up_in_one_word",
+    "genre": "genre",
+    "quote": "quote",
+    "whereWatched": "where_watched",
+    "bestMoment": "best_moment",
+    "worstMoment": "worst_moment",
+    "dateWatched": "date_watched",
+}
 
 @app.route("/", methods=["GET"])
 def home():
@@ -32,13 +47,40 @@ def get_items():
 
 @app.route("/items", methods=["POST"])
 def add_items():
-    data = request.get_json()
+    data = request.get_json() or {}
+
+    if not data.get("title") or not data.get("type"):
+        return jsonify({"error": "Title and type are required."}), 400
+
+    columns = ["title", "type", "description"]
+    values = [
+        data["title"],
+        data["type"],
+        data.get("description", "")
+    ]
+
+    for json_name, column_name in {
+        "rating": "rating",
+        "review": "review",
+    }.items():
+        if json_name in data:
+            columns.append(column_name)
+            values.append(data[json_name])
+
+    # Only movies receive movie-journal fields.
+    if data["type"] == "movie":
+        for json_name, column_name in MOVIE_FIELDS.items():
+            if json_name in data:
+                columns.append(column_name)
+                values.append(data[json_name])
+
+    placeholders = ", ".join("?" for _ in columns)
 
     conn = get_db()
 
     cursor = conn.execute(
-        "INSERT INTO items (title, type, description) VALUES (?, ?, ?)",
-        (data["title"], data["type"], data.get("description", "")),
+        f"INSERT INTO items ({', '.join(columns)}) VALUES ({placeholders})",
+        values,
     )
 
     new_id = cursor.lastrowid
@@ -48,27 +90,40 @@ def add_items():
         "SELECT * FROM items WHERE id = ?",
         (new_id,),
     ).fetchone()
-
     conn.close()
 
     return jsonify(dict(item)), 201
 
 @app.route("/items/<int:item_id>", methods=["PUT"])
 def update_item(item_id):
-    data = request.get_json()
+    data = request.get_json() or {}
+
+    update_fields = {
+        "title": "title",
+        "status": "status",
+        "rating": "rating",
+        "description": "description",
+        "review": "review",
+        **MOVIE_FIELDS,
+    }
+
+    changes = []
+    values = []
+
+    for json_name, column_name in update_fields.items():
+        if json_name in data:
+            changes.append(f"{column_name} = ?")
+            values.append(data[json_name])
+
+    if not changes:
+        return jsonify({"error": "No valid fields were provided"}), 400
+
+    values.append(item_id)
 
     conn = get_db()
     conn.execute(
-        """UPDATE items
-           SET status = ?, rating = ?, review = ?, description = ?
-           WHERE id = ?""",
-        (
-            data.get("status"),
-            data.get("rating"),
-            data.get("review"),
-            data.get("description"),
-            item_id,
-        ),
+        f"UPDATE items SET {', '.join(changes)} WHERE id = ?",
+        values,
     )
     conn.commit()
 

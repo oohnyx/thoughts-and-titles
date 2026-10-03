@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { deleteItem, fetchItem, updateItem } from "../api"
-import type { Item } from "../types"
+import type { BaseItem, Item, MovieEntry } from "../types"
 
 type StarRatingProps = {
     rating: number | null
@@ -38,6 +38,27 @@ const TYPE_CONFIG = {
   book:  { bg: "bg-purple-50", emoji: "📖", color: "text-purple-600" },
   movie: { bg: "bg-orange-50", emoji: "🎬", color: "text-orange-500" },
 }
+
+type MovieJournalField = Exclude<keyof MovieEntry, keyof BaseItem>
+
+const MOVIE_JOURNAL_FIELDS: Array<{
+  key: MovieJournalField
+  label: string
+  placeholder: string
+  multiline?: boolean
+  inputType?: "date"
+}> = [
+  { key: "director", label: "Director", placeholder: "Add the director" },
+  { key: "genre", label: "Genre", placeholder: "Add a genre" },
+  { key: "dateWatched", label: "Date watched", placeholder: "", inputType: "date" },
+  { key: "favoriteCharacter", label: "Favorite character", placeholder: "Who did you love?" },
+  { key: "leastFavoriteCharacter", label: "Least favorite character", placeholder: "Who was not for you?" },
+  { key: "sumUpInOneWord", label: "Sum it up in one word", placeholder: "Your one-word verdict" },
+  { key: "whereWatched", label: "Where I watched it", placeholder: "Cinema, Netflix, etc." },
+  { key: "quote", label: "Quote from the movie", placeholder: "A line worth remembering", multiline: true },
+  { key: "bestMoment", label: "Best moment", placeholder: "Your favorite scene", multiline: true },
+  { key: "worstMoment", label: "Worst moment", placeholder: "The weakest scene", multiline: true },
+]
 
 function DetailPage() {
   const { id } = useParams()          // grab the id from the URL
@@ -80,6 +101,18 @@ function DetailPage() {
         rating: draftItem.rating,
         description: draftItem.description,
         review: draftItem.review,
+        ...(draftItem.type === "movie" ? {
+          director: draftItem.director,
+          favoriteCharacter: draftItem.favoriteCharacter,
+          leastFavoriteCharacter: draftItem.leastFavoriteCharacter,
+          sumUpInOneWord: draftItem.sumUpInOneWord,
+          genre: draftItem.genre,
+          quote: draftItem.quote,
+          whereWatched: draftItem.whereWatched,
+          bestMoment: draftItem.bestMoment,
+          worstMoment: draftItem.worstMoment,
+          dateWatched: draftItem.dateWatched,
+        } : {}),
       })
       setItem(updatedItem)
       setDraftItem(updatedItem)
@@ -93,6 +126,13 @@ function DetailPage() {
   function handleCancel() {
     setDraftItem(item)
     setEditing(false)
+  }
+
+  function updateMovieField(field: MovieJournalField, value: string) {
+    setDraftItem((current) => {
+      if (!current || current.type !== "movie") return current
+      return { ...current, [field]: value }
+    })
   }
 
   async function handleToggleStatus() {
@@ -251,6 +291,53 @@ function DetailPage() {
                 </div>
               )}
             </div>
+
+            {item.type === "movie" && (
+              <div className="border-t border-orange-100 pt-6">
+                <p className="text-xs uppercase tracking-widest text-orange-500 mb-4">Movie journal</p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {MOVIE_JOURNAL_FIELDS.map((field) => {
+                    const value = editing && draftItem?.type === "movie"
+                      ? draftItem[field.key] ?? ""
+                      : item[field.key] ?? ""
+
+                    return (
+                      <div
+                        key={field.key}
+                        className={field.multiline ? "sm:col-span-2" : ""}
+                      >
+                        <p className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+                          {field.label}
+                        </p>
+                        {editing ? (
+                          field.multiline ? (
+                            <textarea
+                              value={value}
+                              onChange={(e) => updateMovieField(field.key, e.target.value)}
+                              placeholder={field.placeholder}
+                              rows={3}
+                              className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400 resize-none"
+                            />
+                          ) : (
+                            <input
+                              type={field.inputType ?? "text"}
+                              value={value}
+                              onChange={(e) => updateMovieField(field.key, e.target.value)}
+                              placeholder={field.placeholder}
+                              className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-gray-400"
+                            />
+                          )
+                        ) : (
+                          <p className="min-h-10 rounded-lg border border-stone-100 bg-stone-50 p-3 text-sm text-gray-700">
+                            {value || <span className="text-gray-300">Not added yet.</span>}
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* ── ACTION BUTTONS ── */}
             <div className="flex gap-2 pt-4 border-t border-stone-100">
