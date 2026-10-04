@@ -62,8 +62,8 @@ function ShelfPage() {
 
   return (
     <div className="min-h-screen bg-stone-100 p-6 font-sans">
+      <Navbar onAdd={() => setShowForm(true)} showForm={showForm} />
       <div className="mx-auto max-w-3xl">
-        <Navbar onAdd={() => setShowForm(true)} showForm={showForm} />
         {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
         {showForm && <AddMovieModal onClose={() => setShowForm(false)} onSave={handleAdd} />}
         <StatsBar total={items.length} finished={finished} avgRating={avgRating} />
