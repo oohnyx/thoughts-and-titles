@@ -64,9 +64,12 @@ def get_items():
 def search_movies():
     query = request.args.get("query", "").strip()
     year = request.args.get("year", "").strip()
+    media_type = request.args.get("media_type", "movie")
 
     if not query:
         return jsonify({"error": "A movie title is required."}), 400
+    if media_type not in ("movie", "series"):
+        return jsonify({"error": "Media type must be movie or series."}), 400
 
     access_token = os.getenv("TMDB_ACCESS_TOKEN")
     if not access_token:
@@ -82,7 +85,7 @@ def search_movies():
         params["year"] = year
 
     tmdb_request = Request(
-        f"{TMDB_API_URL}/search/movie?{urlencode(params)}",
+        f"{TMDB_API_URL}/search/{'tv' if media_type == 'series' else 'movie'}?{urlencode(params)}",
         headers={
             "Authorization": f"Bearer {access_token}",
             "accept": "application/json",
@@ -100,10 +103,10 @@ def search_movies():
     results = [
         {
             "tmdbId": movie["id"],
-            "title": movie["title"],
+            "title": movie.get("title") or movie.get("name"),
             "releaseYear": (
-                int(movie["release_date"][:4])
-                if movie.get("release_date")
+                int((movie.get("release_date") or movie.get("first_air_date"))[:4])
+                if movie.get("release_date") or movie.get("first_air_date")
                 else None
             ),
             "posterPath": movie.get("poster_path"),
@@ -117,6 +120,9 @@ def search_movies():
 
 @app.route("/movie-details/<int:tmdb_id>", methods=["GET"])
 def get_movie_details(tmdb_id):
+    media_type = request.args.get("media_type", "movie")
+    if media_type not in ("movie", "series"):
+        return jsonify({"error": "Media type must be movie or series."}), 400
     access_token = os.getenv("TMDB_ACCESS_TOKEN")
     if not access_token:
         return jsonify({"error": "TMDB access token is not configured."}), 500
@@ -126,7 +132,7 @@ def get_movie_details(tmdb_id):
         "append_to_response": "credits",
     }
     tmdb_request = Request(
-        f"{TMDB_API_URL}/movie/{tmdb_id}?{urlencode(params)}",
+        f"{TMDB_API_URL}/{'tv' if media_type == 'series' else 'movie'}/{tmdb_id}?{urlencode(params)}",
         headers={
             "Authorization": f"Bearer {access_token}",
             "accept": "application/json",
@@ -145,10 +151,12 @@ def get_movie_details(tmdb_id):
         (
             crew_member["name"]
             for crew_member in movie.get("credits", {}).get("crew", [])
-            if crew_member.get("job") == "Director"
+            if crew_member.get("job") == ("Director" if media_type == "movie" else "Executive Producer")
         ),
         None,
     )
+    if media_type == "series" and not director:
+        director = ", ".join(creator["name"] for creator in movie.get("created_by", [])) or None
     genre = ", ".join(
         genre["name"] for genre in movie.get("genres", [])
     ) or None
@@ -176,6 +184,10 @@ def add_items():
         data.get("description", "")
     ]
 
+    if data.get("status") in ("to_watch", "done"):
+        columns.append("status")
+        values.append(data["status"])
+
     for json_name, column_name in {
         "rating": "rating",
         "review": "review",
@@ -190,6 +202,9 @@ def add_items():
             if json_name in data:
                 columns.append(column_name)
                 values.append(data[json_name])
+        if data.get("mediaType") in ("movie", "series"):
+            columns.append("media_type")
+            values.append(data["mediaType"])
 
     placeholders = ", ".join("?" for _ in columns)
 

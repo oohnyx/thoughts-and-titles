@@ -21,6 +21,7 @@ def migrate_db(conn):
         "tmdb_id": "INTEGER",
         "poster_path": "TEXT",
         "release_year": "INTEGER",
+        "media_type": "TEXT",
     }
 
     existing_columns = {

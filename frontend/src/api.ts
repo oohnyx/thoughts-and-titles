@@ -21,6 +21,7 @@ type ApiItem = Omit<BaseItem, "description" | "review"> & {
     tmdb_id: number | null
     poster_path: string | null
     release_year: number | null
+    media_type: "movie" | "series" | null
 }
 
 function normalizeItem(item: ApiItem): Item {
@@ -51,6 +52,7 @@ function normalizeItem(item: ApiItem): Item {
             tmdbId: item.tmdb_id ?? undefined,
             posterPath: item.poster_path ?? undefined,
             releaseYear: item.release_year ?? undefined,
+            mediaType: item.media_type ?? "movie",
         }
     }
 
@@ -60,9 +62,10 @@ function normalizeItem(item: ApiItem): Item {
 type MovieFields = Omit<MovieEntry, keyof BaseItem | "type">
 
 type CreateItemData = {
-    title: string
-    type: Item["type"]
-    description?: string
+  title: string
+  type: Item["type"]
+  status?: Item["status"]
+  description?: string
     rating?: number | null
     review?: string
 } & MovieFields
@@ -96,12 +99,14 @@ export async function fetchItems() {
 export async function searchMovies(
     query: string,
     year?: string,
+    mediaType: "movie" | "series" = "movie",
 ): Promise<MovieSearchResult[]> {
     const params = new URLSearchParams({ query });
 
     if (year?.trim()) {
         params.set("year", year.trim());
     }
+    params.set("media_type", mediaType);
 
     const response = await fetch(
         `${BASE_URL}/movie-search?${params.toString()}`,
@@ -120,8 +125,8 @@ type MovieDetails = {
     overview: string | null
 }
 
-export async function fetchMovieDetails(tmdbId: number): Promise<MovieDetails> {
-    const response = await fetch(`${BASE_URL}/movie-details/${tmdbId}`)
+export async function fetchMovieDetails(tmdbId: number, mediaType: "movie" | "series" = "movie"): Promise<MovieDetails> {
+    const response = await fetch(`${BASE_URL}/movie-details/${tmdbId}?media_type=${mediaType}`)
 
     if (!response.ok) {
         throw new Error("Failed to fetch movie details.")

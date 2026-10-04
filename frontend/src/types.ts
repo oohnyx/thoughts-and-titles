@@ -24,6 +24,7 @@ export type MovieEntry = BaseItem & {
   tmdbId?: number;
   posterPath?: string;
   releaseYear?: number;
+  mediaType?: "movie" | "series";
 };
 
 export type MovieSearchResult = {
