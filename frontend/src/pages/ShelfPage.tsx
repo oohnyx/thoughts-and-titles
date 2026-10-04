@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { createItem, fetchItems } from "../api";
 import AddMovieModal from "../components/AddMovieModal";
 import { FilmMetadata, FilmPoster } from "../components/FilmShelfCard";
@@ -8,12 +8,13 @@ import type { Item, MovieEntry } from "../types";
 
 function ShelfPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<"all" | "to_watch" | "done">("all");
   const [openFilter, setOpenFilter] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(() => Boolean(location.state?.openAddForm));
   const [mediaFilter, setMediaFilter] = useState("All");
   const [yearFilter, setYearFilter] = useState("All");
   const [genreFilter, setGenreFilter] = useState("All");

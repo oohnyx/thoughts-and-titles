@@ -32,6 +32,7 @@ function AddMovieModal({ onClose, onSave }: AddMovieModalProps) {
   const [selectedBook, setSelectedBook] = useState<BookSearchResult | null>(null);
   const [fields, setFields] = useState(EMPTY_FIELDS);
   const [bookDescription, setBookDescription] = useState("");
+  const [movieDescription, setMovieDescription] = useState("");
   const [rating, setRating] = useState<number | null>(null);
   const [review, setReview] = useState("");
   const [moreNotesOpen, setMoreNotesOpen] = useState(false);
@@ -64,6 +65,7 @@ function AddMovieModal({ onClose, onSave }: AddMovieModalProps) {
     try {
       const details = await fetchMovieDetails(movie.tmdbId, mediaType);
       setFields((current) => ({ ...current, director: details.director ?? "", genre: details.genre ?? "" }));
+      setMovieDescription(details.overview ?? "");
     } catch { setMessage("Film selected. Some details could not be filled automatically."); }
   }
   async function selectBook(book: BookSearchResult) {
@@ -86,7 +88,7 @@ function AddMovieModal({ onClose, onSave }: AddMovieModalProps) {
           dateRead: fields.dateWatched, sumUpInOneWord: fields.sumUpInOneWord, quote: fields.quote, bestMoment: fields.bestMoment, worstMoment: fields.worstMoment,
         });
       } else if (selectedMovie) {
-        await onSave({ title: selectedMovie.title, type: "movie", mediaType, status, description: "", rating: rating ?? undefined, review, ...fields, tmdbId: selectedMovie.tmdbId, posterPath: selectedMovie.posterPath, releaseYear: selectedMovie.releaseYear ?? undefined });
+        await onSave({ title: selectedMovie.title, type: "movie", mediaType, status, description: movieDescription, rating: rating ?? undefined, review, ...fields, tmdbId: selectedMovie.tmdbId, posterPath: selectedMovie.posterPath, releaseYear: selectedMovie.releaseYear ?? undefined });
       }
     } catch { setMessage(`Could not save this ${isBook ? "book" : "film"}. Please try again.`); setIsSaving(false); }
   }

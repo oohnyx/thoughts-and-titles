@@ -21,7 +21,7 @@ function HomePage() {
   const average = rated.length ? (rated.reduce((sum, item) => sum + (item.rating ?? 0), 0) / rated.length).toFixed(1) : "—";
 
   return <main className="min-h-screen bg-[#fbf2e5] text-[#352218]">
-    <Navbar onAdd={() => navigate("/shelf")} showForm={false} />
+    <Navbar onAdd={() => navigate("/shelf", { state: { openAddForm: true } })} showForm={false} />
     <section className="mx-auto grid max-w-7xl gap-12 px-6 py-16 lg:grid-cols-[.82fr_1.18fr] lg:items-center lg:px-10">
       <div className="max-w-xl">
         <p className="font-hand text-lg tracking-wide text-[#b4442a]">welcome in — stay a while, the kettle&apos;s on</p>
