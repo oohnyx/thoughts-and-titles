@@ -36,6 +36,26 @@ export type MovieSearchResult = {
 
 export type BookEntry = BaseItem & {
   type: "book";
+  author?: string;
+  publisher?: string;
+  genre?: string;
+  googleBookId?: string;
+  coverUrl?: string;
+  releaseYear?: number;
+  dateRead?: string;
+  sumUpInOneWord?: string;
+  quote?: string;
+  bestMoment?: string;
+  worstMoment?: string;
+};
+
+export type BookSearchResult = {
+  googleBookId: string;
+  title: string;
+  author: string;
+  releaseYear: number | null;
+  coverUrl: string | null;
+  publisher: string | null;
 };
 
 // Components can use Item for all shelf entries. Checking item.type === "movie"

@@ -22,6 +22,10 @@ function ItemCard({ item, onMarkDone, onDelete, onClick }: ItemCardProps) {
   const posterUrl = item.type === "movie" && item.posterPath
     ? `${TMDB_POSTER_URL}${item.posterPath}`
     : null
+  const bookCoverUrl = item.type === "book" && item.coverUrl
+    ? item.coverUrl
+    : null
+  const coverUrl = posterUrl || bookCoverUrl
 
   return (
     <div 
@@ -29,10 +33,10 @@ function ItemCard({ item, onMarkDone, onDelete, onClick }: ItemCardProps) {
         className="bg-white rounded-2xl border border-stone-200 overflow-hidden cursor-pointer hover:-translate-y-1 hover:shadow-md transition-all"
     >
       <div className="relative p-2 pb-0">
-        {posterUrl ? (
+        {coverUrl ? (
           <img
-            src={posterUrl}
-            alt={`${item.title} poster`}
+            src={coverUrl}
+            alt={`${item.title} cover`}
             className="aspect-[2/3] w-full rounded-xl object-cover bg-stone-100"
           />
         ) : (
@@ -55,7 +59,7 @@ function ItemCard({ item, onMarkDone, onDelete, onClick }: ItemCardProps) {
           <p className="line-clamp-2 font-semibold text-sm leading-snug text-gray-900">
             {item.title}
           </p>
-          {item.type === "movie" && item.releaseYear && (
+          {item.releaseYear && (
             <span className="shrink-0 text-sm font-medium text-gray-500">
               {item.releaseYear}
             </span>
@@ -63,7 +67,7 @@ function ItemCard({ item, onMarkDone, onDelete, onClick }: ItemCardProps) {
         </div>
 
         <p className="mt-1 min-h-5 text-xs text-gray-400">
-          {item.type === "movie" ? item.director || item.genre || "Movie" : "Book"}
+          {item.type === "movie" ? item.director || item.genre || "Movie" : item.author || "Book"}
         </p>
 
         {/* star rating — only shows if rated */}

@@ -40,6 +40,19 @@ MOVIE_FIELDS = {
     "releaseYear": "release_year",
 }
 
+BOOK_FIELDS = {
+    "author": "author",
+    "publisher": "publisher",
+    "genre": "genre",
+    "googleBookId": "google_book_id",
+    "coverUrl": "cover_url",
+    "dateRead": "date_watched",
+    "sumUpInOneWord": "sum_up_in_one_word",
+    "quote": "quote",
+    "bestMoment": "best_moment",
+    "worstMoment": "worst_moment",
+}
+
 @app.route("/", methods=["GET"])
 def home():
     return jsonify(
@@ -116,6 +129,64 @@ def search_movies():
     ]
 
     return jsonify(results)
+
+
+@app.route("/book-search", methods=["GET"])
+def search_books():
+    query = request.args.get("query", "").strip()
+    if not query:
+        return jsonify({"error": "A book title is required."}), 400
+
+    try:
+        with urlopen(
+            f"https://www.googleapis.com/books/v1/volumes?{urlencode({'q': query, 'maxResults': 12, 'printType': 'books', **({'key': os.getenv('GOOGLE_BOOKS_API_KEY')} if os.getenv('GOOGLE_BOOKS_API_KEY') else {})})}",
+            timeout=10,
+        ) as response:
+            data = json.load(response)
+    except HTTPError as error:
+        if error.code == 429:
+            return jsonify({"error": "Google Books rate limit reached. Configure GOOGLE_BOOKS_API_KEY to continue."}), 429
+        return jsonify({"error": "Google Books rejected the search request."}), 502
+    except URLError:
+        return jsonify({"error": "Could not connect to Google Books."}), 502
+
+    return jsonify([
+        {
+            "googleBookId": book["id"],
+            "title": book.get("volumeInfo", {}).get("title"),
+            "author": ", ".join(book.get("volumeInfo", {}).get("authors", [])),
+            "releaseYear": int(book["volumeInfo"]["publishedDate"][:4]) if book.get("volumeInfo", {}).get("publishedDate", "")[:4].isdigit() else None,
+            "coverUrl": book.get("volumeInfo", {}).get("imageLinks", {}).get("thumbnail", "").replace("http://", "https://", 1) or None,
+            "publisher": book.get("volumeInfo", {}).get("publisher"),
+        }
+        for book in data.get("items", [])
+        if book.get("volumeInfo", {}).get("title")
+    ])
+
+
+@app.route("/book-details/<google_book_id>", methods=["GET"])
+def get_book_details(google_book_id):
+    params = {}
+    if os.getenv("GOOGLE_BOOKS_API_KEY"):
+        params["key"] = os.getenv("GOOGLE_BOOKS_API_KEY")
+    try:
+        with urlopen(
+            f"https://www.googleapis.com/books/v1/volumes/{google_book_id}?{urlencode(params)}",
+            timeout=10,
+        ) as response:
+            book = json.load(response)
+    except HTTPError as error:
+        if error.code == 429:
+            return jsonify({"error": "Google Books rate limit reached. Configure GOOGLE_BOOKS_API_KEY to continue."}), 429
+        return jsonify({"error": "Google Books could not find this book."}), 404
+    except URLError:
+        return jsonify({"error": "Could not connect to Google Books."}), 502
+
+    info = book.get("volumeInfo", {})
+    return jsonify({
+        "description": info.get("description", ""),
+        "genre": ", ".join(info.get("categories", [])[:3]),
+    })
 
 
 @app.route("/movie-details/<int:tmdb_id>", methods=["GET"])
@@ -205,6 +276,11 @@ def add_items():
         if data.get("mediaType") in ("movie", "series"):
             columns.append("media_type")
             values.append(data["mediaType"])
+    elif data["type"] == "book":
+        for json_name, column_name in BOOK_FIELDS.items():
+            if json_name in data:
+                columns.append(column_name)
+                values.append(data[json_name])
 
     placeholders = ", ".join("?" for _ in columns)
 

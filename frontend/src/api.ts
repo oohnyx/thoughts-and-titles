@@ -1,4 +1,4 @@
-import type { BaseItem, Item, MovieEntry, MovieSearchResult } from "./types"
+import type { BaseItem, BookSearchResult, Item, MovieEntry, MovieSearchResult } from "./types"
 
 // this is the base URL of our Flask backend
 // every API call will start with this
@@ -22,6 +22,10 @@ type ApiItem = Omit<BaseItem, "description" | "review"> & {
     poster_path: string | null
     release_year: number | null
     media_type: "movie" | "series" | null
+    author: string | null
+    publisher: string | null
+    google_book_id: string | null
+    cover_url: string | null
 }
 
 function normalizeItem(item: ApiItem): Item {
@@ -56,7 +60,21 @@ function normalizeItem(item: ApiItem): Item {
         }
     }
 
-    return { ...sharedItem, type: "book" }
+    return {
+        ...sharedItem,
+        type: "book",
+        author: item.author ?? undefined,
+        publisher: item.publisher ?? undefined,
+        genre: item.genre ?? undefined,
+        googleBookId: item.google_book_id ?? undefined,
+        coverUrl: item.cover_url ?? undefined,
+        releaseYear: item.release_year ?? undefined,
+        dateRead: item.date_watched ?? undefined,
+        sumUpInOneWord: item.sum_up_in_one_word ?? undefined,
+        quote: item.quote ?? undefined,
+        bestMoment: item.best_moment ?? undefined,
+        worstMoment: item.worst_moment ?? undefined,
+    }
 }
 
 type MovieFields = Omit<MovieEntry, keyof BaseItem | "type">
@@ -119,6 +137,12 @@ export async function searchMovies(
     return response.json();
 }
 
+export async function searchBooks(query: string): Promise<BookSearchResult[]> {
+    const response = await fetch(`${BASE_URL}/book-search?${new URLSearchParams({ query })}`)
+    if (!response.ok) throw new Error("Failed to search for books.")
+    return response.json()
+}
+
 type MovieDetails = {
     director: string | null
     genre: string | null
@@ -132,6 +156,12 @@ export async function fetchMovieDetails(tmdbId: number, mediaType: "movie" | "se
         throw new Error("Failed to fetch movie details.")
     }
 
+    return response.json()
+}
+
+export async function fetchBookDetails(googleBookId: string): Promise<{ description: string; genre: string }> {
+    const response = await fetch(`${BASE_URL}/book-details/${googleBookId}`)
+    if (!response.ok) throw new Error("Failed to fetch book details.")
     return response.json()
 }
 

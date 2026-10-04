@@ -22,6 +22,12 @@ def migrate_db(conn):
         "poster_path": "TEXT",
         "release_year": "INTEGER",
         "media_type": "TEXT",
+        "author": "TEXT",
+        "publisher": "TEXT",
+        "open_library_id": "TEXT",
+        "cover_id": "INTEGER",
+        "google_book_id": "TEXT",
+        "cover_url": "TEXT",
     }
 
     existing_columns = {
