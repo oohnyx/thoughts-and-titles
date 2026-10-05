@@ -28,6 +28,10 @@ def migrate_db(conn):
         "cover_id": "INTEGER",
         "google_book_id": "TEXT",
         "cover_url": "TEXT",
+        "completed_year": "INTEGER",
+        "completed_month": "INTEGER",
+        "completed_day": "INTEGER",
+        "completed_date_precision": "TEXT",
     }
 
     existing_columns = {
@@ -53,6 +57,21 @@ def migrate_db(conn):
         if column_name in existing_columns:
             conn.execute(f"ALTER TABLE items DROP COLUMN {column_name}")
 
+    # Preserve exact dates collected before date precision was introduced.
+    conn.execute(
+        """UPDATE items
+           SET completed_year = CAST(substr(date_watched, 1, 4) AS INTEGER),
+               completed_month = CAST(substr(date_watched, 6, 2) AS INTEGER),
+               completed_day = CAST(substr(date_watched, 9, 2) AS INTEGER),
+               completed_date_precision = 'exact'
+           WHERE date_watched IS NOT NULL AND length(date_watched) = 10
+             AND completed_date_precision IS NULL"""
+    )
+
+    # Older entries used `to_watch` for everything not yet shelved.  Preserve
+    # those entries as items waiting in the Nightstand queue.
+    conn.execute("UPDATE items SET status = 'queued' WHERE status = 'to_watch'")
+
 def init_db():
     conn = get_db()
     conn.execute(
@@ -61,7 +80,7 @@ def init_db():
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             title       TEXT NOT NULL,
             type        TEXT NOT NULL,
-            status      TEXT NOT NULL DEFAULT 'to_watch',
+            status      TEXT NOT NULL DEFAULT 'queued',
             rating      INTEGER,
             description TEXT,
             review      TEXT,

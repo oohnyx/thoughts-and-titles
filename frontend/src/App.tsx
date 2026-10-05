@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom"
 import ShelfPage from "./pages/ShelfPage";
 import DetailPage from "./pages/DetailPage";
 import HomePage from "./pages/HomePage";
+import NightstandPage from "./pages/NightstandPage";
 
 function App() {
   
@@ -12,6 +13,7 @@ function App() {
         {/* when URL is exactly "/", show ShelfPage */}
         <Route path="/" element={<HomePage />} />
         <Route path="/shelf" element={<ShelfPage />} />
+        <Route path="/nightstand" element={<NightstandPage />} />
 
         {/* :id part is a variable, read using useParams() */}
         <Route path="/item/:id" element={<DetailPage />} />

@@ -16,7 +16,7 @@ function HomePage() {
   const [items, setItems] = useState<Item[]>([]);
   useEffect(() => { fetchItems().then(setItems).catch(() => setItems([])); }, []);
   const recent = items.slice(0, 6);
-  const nightstand = items.filter((item) => item.type === "movie" && item.status === "to_watch").slice(0, 3);
+  const nightstand = items.filter((item) => item.status === "queued" || item.status === "in_progress").slice(0, 3);
   const rated = items.filter((item) => item.rating !== null);
   const average = rated.length ? (rated.reduce((sum, item) => sum + (item.rating ?? 0), 0) / rated.length).toFixed(1) : "—";
 
@@ -42,7 +42,7 @@ function HomePage() {
       </div>
     </section>
     <section id="nightstand" className="mx-auto max-w-7xl px-6 pb-16 lg:px-10">
-      <div className="flex items-end justify-between border-b border-[#8c7766] pb-2"><h2 className="font-serif text-3xl">On the nightstand <span className="ml-2 font-sans text-sm font-normal text-[#806858]">not shelved yet</span></h2><button type="button" onClick={() => navigate("/shelf")} className="text-sm text-[#a13e27] underline">See all →</button></div>
+      <div className="flex items-end justify-between border-b border-[#8c7766] pb-2"><h2 className="font-serif text-3xl">On the nightstand <span className="ml-2 font-sans text-sm font-normal text-[#806858]">not shelved yet</span></h2><button type="button" onClick={() => navigate("/nightstand")} className="text-sm text-[#a13e27] underline">See all →</button></div>
       <div className="mt-4 grid gap-5 md:grid-cols-3">{nightstand.map((item) => <Nightstand item={item} key={item.id} />)}</div>
     </section>
   </main>;

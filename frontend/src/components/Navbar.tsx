@@ -4,18 +4,21 @@ type NavbarProps = {
 };
 
 function Navbar({ onAdd, showForm }: NavbarProps) {
+  const { pathname } = useLocation();
+  const navClass = (path: string) => `rounded-full px-4 py-2 transition-colors hover:bg-[#f1e6d7] ${pathname === path ? "bg-[#452c1d] text-[#fff9ef] hover:bg-[#452c1d]" : ""}`;
+
   return (
     <header className="mb-8 border-b border-[#e5d8c7] bg-[#fbf4e9]">
       <nav className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4 lg:px-10" aria-label="Main navigation">
-        <a href="/" className="flex shrink-0 items-center gap-3 text-[#2f2118]" aria-label="Thoughts and Titles home">
+        <Link to="/" className="flex shrink-0 items-center gap-3 text-[#2f2118]" aria-label="Thoughts and Titles home">
           <span className="grid h-9 w-9 place-items-center rounded-full bg-[#b4442a] font-serif text-base font-semibold text-white" aria-hidden="true">栞</span>
           <span className="font-serif text-xl leading-none sm:text-2xl">Thoughts &amp; Titles</span>
-        </a>
+        </Link>
 
         <div className="hidden items-center gap-1 text-sm font-medium text-[#39281e] lg:flex">
-          <a href="/" className="rounded-full bg-[#452c1d] px-4 py-2 text-[#fff9ef]">Home</a>
-          <a href="/shelf" className="rounded-full px-4 py-2 transition-colors hover:bg-[#f1e6d7]">Films</a>
-          <a href="#nightstand" className="rounded-full px-4 py-2 transition-colors hover:bg-[#f1e6d7]">Nightstand</a>
+          <Link to="/" className={navClass("/")}>Home</Link>
+          <Link to="/shelf" className={navClass("/shelf")}>Shelf</Link>
+          <Link to="/nightstand" className={navClass("/nightstand")}>Nightstand</Link>
           <a href="#year-in-review" className="rounded-full px-4 py-2 transition-colors hover:bg-[#f1e6d7]">Year in review</a>
         </div>
 
@@ -33,3 +36,4 @@ function Navbar({ onAdd, showForm }: NavbarProps) {
 }
 
 export default Navbar;
+import { Link, useLocation } from "react-router-dom";

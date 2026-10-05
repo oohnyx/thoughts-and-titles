@@ -3,10 +3,14 @@ export type BaseItem = {
   id: number;
   title: string;
   type: "book" | "movie";
-  status: "to_watch" | "done";
+  status: "queued" | "in_progress" | "done";
   rating: number | null;
   description: string;
   review: string;
+  completedYear?: number;
+  completedMonth?: number;
+  completedDay?: number;
+  completedDatePrecision?: "exact" | "month" | "year" | "unknown";
 };
 
 export type MovieEntry = BaseItem & {

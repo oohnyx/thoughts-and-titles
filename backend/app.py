@@ -40,6 +40,15 @@ MOVIE_FIELDS = {
     "releaseYear": "release_year",
 }
 
+COMPLETION_DATE_FIELDS = {
+    "completedYear": "completed_year",
+    "completedMonth": "completed_month",
+    "completedDay": "completed_day",
+    "completedDatePrecision": "completed_date_precision",
+}
+
+NIGHTSTAND_STATUSES = ("queued", "in_progress", "done")
+
 BOOK_FIELDS = {
     "author": "author",
     "publisher": "publisher",
@@ -255,7 +264,7 @@ def add_items():
         data.get("description", "")
     ]
 
-    if data.get("status") in ("to_watch", "done"):
+    if data.get("status") in NIGHTSTAND_STATUSES:
         columns.append("status")
         values.append(data["status"])
 
@@ -263,6 +272,11 @@ def add_items():
         "rating": "rating",
         "review": "review",
     }.items():
+        if json_name in data:
+            columns.append(column_name)
+            values.append(data[json_name])
+
+    for json_name, column_name in COMPLETION_DATE_FIELDS.items():
         if json_name in data:
             columns.append(column_name)
             values.append(data[json_name])
@@ -312,6 +326,7 @@ def update_item(item_id):
         "rating": "rating",
         "description": "description",
         "review": "review",
+        **COMPLETION_DATE_FIELDS,
         **MOVIE_FIELDS,
     }
 
@@ -322,6 +337,9 @@ def update_item(item_id):
         if json_name in data:
             changes.append(f"{column_name} = ?")
             values.append(data[json_name])
+
+    if "status" in data and data["status"] not in NIGHTSTAND_STATUSES:
+        return jsonify({"error": "Invalid status"}), 400
 
     if not changes:
         return jsonify({"error": "No valid fields were provided"}), 400

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { fetchBookDetails, fetchMovieDetails, searchBooks, searchMovies } from "../api";
 import type { BookSearchResult, MovieSearchResult } from "../types";
+import { CompletionDateField, completionDatePayload, todayForInput, type CompletionDate } from "./CompletionDateField";
 
 const TMDB_POSTER_URL = "https://image.tmdb.org/t/p/w342";
 
@@ -10,11 +11,11 @@ const EMPTY_FIELDS = {
 };
 
 type MovieData = {
-  title: string; type: "movie"; status: "done" | "to_watch"; mediaType: "movie" | "series";
+  title: string; type: "movie"; status: "done" | "queued" | "in_progress"; mediaType: "movie" | "series";
   description: string; rating?: number; review: string; tmdbId: number; posterPath: string; releaseYear?: number;
 } & typeof EMPTY_FIELDS;
 type BookData = {
-  title: string; type: "book"; status: "done" | "to_watch"; description: string; rating?: number; review: string;
+  title: string; type: "book"; status: "done" | "queued" | "in_progress"; description: string; rating?: number; review: string;
   author: string; publisher?: string; genre?: string; googleBookId: string; coverUrl?: string; releaseYear?: number;
   dateRead: string; sumUpInOneWord: string; quote: string; bestMoment: string; worstMoment: string;
 };
@@ -39,6 +40,7 @@ function AddMovieModal({ onClose, onSave }: AddMovieModalProps) {
   const [isSearching, setIsSearching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [completionDate, setCompletionDate] = useState<CompletionDate>(() => ({ precision: "exact", exactDate: todayForInput(), month: "", year: "" }));
   const isBook = kind === "book";
 
   function updateField(field: keyof typeof EMPTY_FIELDS, value: string) {
@@ -76,19 +78,27 @@ function AddMovieModal({ onClose, onSave }: AddMovieModalProps) {
       setFields((current) => ({ ...current, genre: details.genre ?? "" }));
     } catch { setMessage("Book selected. Its description could not be filled automatically."); }
   }
-  async function handleSave(status: "done" | "to_watch") {
+  async function handleSave(status: "done" | "queued" | "in_progress") {
     if (!selectedMovie && !selectedBook) return;
+    if (status === "done" && (!rating || !review.trim())) {
+      setMessage("Add a rating and a review before placing this on the shelf.");
+      return;
+    }
+    if (status === "done" && ((completionDate.precision === "exact" && !completionDate.exactDate) || (completionDate.precision === "month" && !completionDate.month) || (completionDate.precision === "year" && !completionDate.year))) {
+      setMessage("Choose the date details you remember.");
+      return;
+    }
     setIsSaving(true); setMessage("");
     try {
       if (selectedBook) {
         await onSave({
-          title: selectedBook.title, type: "book", status, description: bookDescription, rating: rating ?? undefined, review,
+          title: selectedBook.title, type: "book", status, description: bookDescription, rating: rating ?? undefined, review, ...(status === "done" ? completionDatePayload(completionDate) : {}),
           author: selectedBook.author, publisher: selectedBook.publisher ?? undefined, googleBookId: selectedBook.googleBookId,
           coverUrl: selectedBook.coverUrl ?? undefined, releaseYear: selectedBook.releaseYear ?? undefined, genre: fields.genre,
           dateRead: fields.dateWatched, sumUpInOneWord: fields.sumUpInOneWord, quote: fields.quote, bestMoment: fields.bestMoment, worstMoment: fields.worstMoment,
         });
       } else if (selectedMovie) {
-        await onSave({ title: selectedMovie.title, type: "movie", mediaType, status, description: movieDescription, rating: rating ?? undefined, review, ...fields, tmdbId: selectedMovie.tmdbId, posterPath: selectedMovie.posterPath, releaseYear: selectedMovie.releaseYear ?? undefined });
+        await onSave({ title: selectedMovie.title, type: "movie", mediaType, status, description: movieDescription, rating: rating ?? undefined, review, ...fields, ...(status === "done" ? completionDatePayload(completionDate) : {}), tmdbId: selectedMovie.tmdbId, posterPath: selectedMovie.posterPath, releaseYear: selectedMovie.releaseYear ?? undefined });
       }
     } catch { setMessage(`Could not save this ${isBook ? "book" : "film"}. Please try again.`); setIsSaving(false); }
   }
@@ -115,8 +125,9 @@ function AddMovieModal({ onClose, onSave }: AddMovieModalProps) {
         </div> : <div className="overflow-y-auto px-6 py-6 sm:px-8">
           <div className="flex items-center gap-4 rounded-2xl bg-[#f3eddf] p-3 sm:p-4">{selectedImage ? <img src={selectedImage} alt="" className="h-20 w-14 rounded-lg object-cover bg-stone-200" /> : <div className="h-20 w-14 rounded-lg bg-stone-200" />}<div className="min-w-0 flex-1"><p className="truncate font-serif text-xl text-stone-900">{selectedTitle}</p><p className="mt-1 text-sm text-stone-500">{[selectedYear, selectedByline].filter(Boolean).join(" · ")}</p></div><button type="button" onClick={() => setStep(1)} className="text-sm text-[#c94d32] underline underline-offset-2">Change</button></div>
           {message && <p className="mt-3 text-sm text-[#b44934]">{message}</p>}
-          <div className="mt-6 grid gap-5 sm:grid-cols-2"><fieldset><legend className="mb-2 text-sm font-semibold text-stone-800">Rating</legend><div className="flex gap-1">{[1, 2, 3, 4, 5].map((value) => <button key={value} type="button" onClick={() => setRating(value)} aria-label={`${value} stars`} className={`text-4xl leading-none ${value <= (rating ?? 0) ? "text-[#c94d32]" : "text-[#d9d1c1]"}`}>★</button>)}</div></fieldset><label className="text-sm font-semibold text-stone-800">{isBook ? "Date read" : "Date watched"}<input type="date" value={fields.dateWatched} onChange={(event) => updateField("dateWatched", event.target.value)} className="mt-2 block w-full rounded-xl border border-[#d9cfbd] bg-white px-3 py-3 font-normal outline-none focus:border-[#64844e]" /></label><label className="text-sm font-semibold text-stone-800">Sum it up in one word<input value={fields.sumUpInOneWord} onChange={(event) => updateField("sumUpInOneWord", event.target.value)} placeholder="e.g. cozy" className="mt-2 block w-full rounded-xl border border-[#d9cfbd] bg-white px-3 py-3 font-normal outline-none focus:border-[#64844e]" /></label>{!isBook && <label className="text-sm font-semibold text-stone-800">Where you watched it<input value={fields.whereWatched} onChange={(event) => updateField("whereWatched", event.target.value)} placeholder="e.g. cinema, Netflix" className="mt-2 block w-full rounded-xl border border-[#d9cfbd] bg-white px-3 py-3 font-normal outline-none focus:border-[#64844e]" /></label>}</div>
-          <label className="mt-5 block text-sm font-semibold text-stone-800">Your review<textarea value={review} onChange={(event) => setReview(event.target.value)} rows={4} placeholder="What did you think?" className="mt-2 block w-full resize-none rounded-xl border border-[#d9cfbd] bg-white px-3 py-3 font-normal outline-none focus:border-[#64844e]" /></label>
+          <div className="mt-6 grid gap-5 sm:grid-cols-2"><fieldset><legend className="mb-2 text-sm font-semibold text-stone-800">Rating</legend><div className="flex gap-1">{[1, 2, 3, 4, 5].map((value) => <button key={value} type="button" onClick={() => setRating(value)} aria-label={`${value} stars`} className={`text-4xl leading-none ${value <= (rating ?? 0) ? "text-[#c94d32]" : "text-[#d9d1c1]"}`}>★</button>)}</div></fieldset><label className="text-sm font-semibold text-stone-800">Sum it up in one word<input value={fields.sumUpInOneWord} onChange={(event) => updateField("sumUpInOneWord", event.target.value)} placeholder="e.g. cozy" className="mt-2 block w-full rounded-xl border border-[#d9cfbd] bg-white px-3 py-3 font-normal outline-none focus:border-[#64844e]" /></label>{!isBook && <label className="text-sm font-semibold text-stone-800">Where you watched it<input value={fields.whereWatched} onChange={(event) => updateField("whereWatched", event.target.value)} placeholder="e.g. cinema, Netflix" className="mt-2 block w-full rounded-xl border border-[#d9cfbd] bg-white px-3 py-3 font-normal outline-none focus:border-[#64844e]" /></label>}</div>
+          <label className="mt-5 block text-sm font-semibold text-stone-800">Your review <span className="text-[#b4442a]">*</span><textarea value={review} onChange={(event) => setReview(event.target.value)} rows={4} placeholder="What did you think?" className="mt-2 block w-full resize-none rounded-xl border border-[#d9cfbd] bg-white px-3 py-3 font-normal outline-none focus:border-[#64844e]" /></label>
+          <CompletionDateField value={completionDate} onChange={setCompletionDate} label={isBook ? "When did you finish reading it?" : "When did you finish watching it?"} />
           <button type="button" onClick={() => setMoreNotesOpen((open) => !open)} className="mt-5 flex w-full items-center justify-between rounded-xl border border-[#e3dac9] px-4 py-3 text-left"><span><span className="font-semibold">More notes</span><span className="ml-2 text-sm text-stone-500">· optional</span></span><span className="text-xl">{moreNotesOpen ? "−" : "+"}</span></button>
           {moreNotesOpen && <div className="mt-3 space-y-3">
             <textarea value={fields.quote} onChange={(event) => updateField("quote", event.target.value)} placeholder="Favorite quote" rows={3} className="block w-full resize-none rounded-xl border border-[#d9cfbd] bg-white px-3 py-3 outline-none focus:border-[#64844e]" />
@@ -130,7 +141,7 @@ function AddMovieModal({ onClose, onSave }: AddMovieModalProps) {
             </div>}
           </div>}
         </div>}
-        <footer className="flex items-center justify-between border-t border-[#e8e0d1] px-6 py-4 sm:px-8">{step === 2 ? <button type="button" onClick={() => setStep(1)} className="text-sm text-stone-700">← Back</button> : <span className="text-sm text-[#5e8048]">{isBook ? "Cover, author & description fill in for you" : "Poster, director & genre fill in for you"}</span>}{step === 2 && <div className="flex gap-2"><button type="button" disabled={isSaving} onClick={() => handleSave("to_watch")} className="rounded-full border border-[#d9cfbd] px-4 py-3 text-sm font-medium disabled:opacity-60">Save to Up next</button><button type="button" disabled={isSaving} onClick={() => handleSave("done")} className="rounded-full bg-[#5e8048] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">{isSaving ? "Saving…" : "Shelve it ↗"}</button></div>}</footer>
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#e8e0d1] px-6 py-4 sm:px-8">{step === 2 ? <button type="button" onClick={() => setStep(1)} className="text-sm text-stone-700">← Back</button> : <span className="text-sm text-[#5e8048]">{isBook ? "Cover, author & description fill in for you" : "Poster, director & genre fill in for you"}</span>}{step === 2 && <div className="flex flex-wrap justify-end gap-2"><button type="button" disabled={isSaving} onClick={() => handleSave("in_progress")} className="rounded-full border border-[#d9cfbd] px-4 py-3 text-sm font-medium disabled:opacity-60">Leave on the nightstand</button><button type="button" disabled={isSaving} onClick={() => handleSave("done")} className="rounded-full bg-[#5e8048] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">{isSaving ? "Saving…" : "Place on the shelf ↗"}</button></div>}</footer>
       </div>
     </div>
   );

@@ -26,6 +26,10 @@ type ApiItem = Omit<BaseItem, "description" | "review"> & {
     publisher: string | null
     google_book_id: string | null
     cover_url: string | null
+    completed_year: number | null
+    completed_month: number | null
+    completed_day: number | null
+    completed_date_precision: "exact" | "month" | "year" | "unknown" | null
 }
 
 function normalizeItem(item: ApiItem): Item {
@@ -37,6 +41,10 @@ function normalizeItem(item: ApiItem): Item {
         rating: item.rating,
         description: item.description ?? "",
         review: item.review ?? "",
+        completedYear: item.completed_year ?? undefined,
+        completedMonth: item.completed_month ?? undefined,
+        completedDay: item.completed_day ?? undefined,
+        completedDatePrecision: item.completed_date_precision ?? undefined,
     }
 
     if (item.type === "movie") {
