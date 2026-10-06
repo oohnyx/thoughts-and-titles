@@ -29,7 +29,10 @@ export type MovieEntry = BaseItem & {
   posterPath?: string;
   releaseYear?: number;
   mediaType?: "movie" | "series";
+  rewatchCount?: number;
 };
+
+export type Viewing = { id: number; itemId: number; watchedOn: string; rating: number; tag?: string; note?: string };
 
 export type MovieSearchResult = {
   tmdbId: number;
