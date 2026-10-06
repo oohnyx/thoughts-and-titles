@@ -31,7 +31,7 @@ function Navbar({ onAdd, showForm }: NavbarProps) {
           <Link to="/" className={navClass("/")}>Home</Link>
           <Link to="/shelf" className={navClass("/shelf")}>Shelf</Link>
           <Link to="/nightstand" className={navClass("/nightstand")}>Nightstand</Link>
-          <a href="#year-in-review" className="rounded-full px-4 py-2 transition-colors hover:bg-[#f1e6d7]">Year in review</a>
+          <Link to="/yearbook" className={navClass("/yearbook")}>Yearbook</Link>
         </div>
 
         <form onSubmit={handleSearch} className="hidden min-w-0 flex-1 xl:block xl:max-w-[250px]" role="search">

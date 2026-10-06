@@ -3,6 +3,7 @@ import ShelfPage from "./pages/ShelfPage";
 import DetailPage from "./pages/DetailPage";
 import HomePage from "./pages/HomePage";
 import NightstandPage from "./pages/NightstandPage";
+import YearbookPage from "./pages/YearbookPage";
 
 function App() {
   
@@ -14,6 +15,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/shelf" element={<ShelfPage />} />
         <Route path="/nightstand" element={<NightstandPage />} />
+        <Route path="/yearbook" element={<YearbookPage />} />
 
         {/* :id part is a variable, read using useParams() */}
         <Route path="/item/:id" element={<DetailPage />} />
