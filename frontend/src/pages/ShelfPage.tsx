@@ -18,6 +18,7 @@ function ShelfPage() {
   const [yearFilter, setYearFilter] = useState("All");
   const [genreFilter, setGenreFilter] = useState("All");
   const [ratingFilter, setRatingFilter] = useState("Any");
+  const searchQuery = new URLSearchParams(location.search).get("q")?.trim().toLowerCase() ?? "";
 
   useEffect(() => {
     async function loadItems() {
@@ -43,6 +44,7 @@ function ShelfPage() {
     if (item.type !== "movie") return false;
     // The Shelf is the permanent collection: only finished titles belong here.
     if (item.status !== "done") return false;
+    if (searchQuery && ![item.title, item.director, item.genre].some((value) => value?.toLowerCase().includes(searchQuery))) return false;
     if (mediaFilter === "Movies only" && (item.mediaType ?? "movie") !== "movie") return false;
     if (mediaFilter === "Series only" && item.mediaType !== "series") return false;
     if (yearFilter !== "All") {
