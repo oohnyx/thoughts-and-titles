@@ -6,3 +6,9 @@
   --font-serif: "Shippori Mincho", serif;
   --font-hand: "Klee One", cursive;
 }
+
+body { background: #FBFAF7; }
+
+.collection-tag { display: inline-flex; align-items: center; gap: .32rem; border: 1px solid #e3dacb; border-radius: 2px; background: #FFFDF8; padding: .18rem .48rem; color: #704d32; font-family: "Klee One", cursive; font-size: .72rem; line-height: 1.1; box-shadow: 0 2px 3px rgb(71 48 29 / .14); }
+.collection-tag__pin { width: .28rem; height: .28rem; border-radius: 50%; background: #b58a49; box-shadow: inset 0 0 0 1px rgb(91 62 30 / .18); }
+.collection-ribbon { position: absolute; top: -1px; right: .7rem; z-index: 20; width: .8rem; height: 2.05rem; background: linear-gradient(90deg, #9f311f, #c54b34 58%, #a73421); filter: drop-shadow(1px 1px 1px rgb(58 28 18 / .26)); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 84%, 0 100%); }
