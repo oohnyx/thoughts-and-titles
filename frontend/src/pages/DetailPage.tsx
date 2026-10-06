@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
-import { deleteItem, fetchItem, fetchMovieDetails, searchMovies, updateItem } from "../api"
-import type { BaseItem, Item, MovieEntry, MovieSearchResult } from "../types"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
+import { addViewing, deleteItem, fetchItem, fetchMovieDetails, fetchViewings, searchMovies, updateItem } from "../api"
+import type { BaseItem, Item, MovieEntry, MovieSearchResult, Viewing } from "../types"
+import RewatchModal from "../components/RewatchModal"
+import { TagLabel } from "../components/CollectionDetails"
 
 const POSTER_URL = "https://image.tmdb.org/t/p/w500"
 type MovieField = Exclude<keyof MovieEntry, keyof BaseItem | "type">
@@ -31,6 +33,7 @@ function LinedField({ label, value, editing, multiline, onChange }: { label: str
 function DetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const [item, setItem] = useState<Item | null>(null)
   const [draft, setDraft] = useState<Item | null>(null)
   const [editing, setEditing] = useState(false)
@@ -40,13 +43,17 @@ function DetailPage() {
   const [year, setYear] = useState("")
   const [results, setResults] = useState<MovieSearchResult[]>([])
   const [searching, setSearching] = useState(false)
-  const [moveOpen, setMoveOpen] = useState(false)
+  const [viewings, setViewings] = useState<Viewing[]>([])
+  const [rewatchOpen, setRewatchOpen] = useState(() => new URLSearchParams(location.search).get("rewatch") === "1")
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   useEffect(() => {
     async function load() {
       try {
         const entry = await fetchItem(Number(id))
         setItem(entry); setDraft(entry)
+        if (entry.type === "movie") setViewings(await fetchViewings(entry.id))
         if (entry.type === "movie") setYear(entry.releaseYear?.toString() ?? "")
       } catch { setError("Could not load this entry.") } finally { setLoading(false) }
     }
@@ -63,15 +70,8 @@ function DetailPage() {
       setItem(saved); setDraft(saved); setEditing(false)
     } catch { setError("Could not save changes.") }
   }
-  async function moveToNightstand(status: "queued" | "in_progress") {
-    if (!item) return
-    try {
-      const saved = await updateItem(item.id, { status })
-      setItem(saved); setDraft(saved); setMoveOpen(false)
-    } catch { setError("Could not move this entry to the Nightstand.") }
-  }
   async function remove() {
-    if (!item || !window.confirm(`Remove “${item.title}” from your shelf?`)) return
+    if (!item) return
     try { await deleteItem(item.id); navigate("/shelf") } catch { setError("Could not remove entry.") }
   }
   async function findPosters() {
@@ -88,6 +88,10 @@ function DetailPage() {
       setItem(saved); setDraft(saved); setPosterSearch(false); setResults([])
     } catch { setError("Could not save poster.") }
   }
+  async function logViewing(data: { watchedOn: string; rating: number; tag?: string; note?: string }) {
+    if (!movie) return
+    try { const saved = await addViewing(movie.id, data); setItem(saved); setDraft(saved); setViewings(await fetchViewings(movie.id)); setRewatchOpen(false) } catch { setError("Could not add this viewing.") }
+  }
 
   if (loading) return <div className="grid min-h-screen place-items-center bg-[#766b60] font-sans text-[#fff8ef]">Loading entry…</div>
   if (!item) return <div className="grid min-h-screen place-items-center bg-[#766b60] font-sans text-[#fff8ef]"><div className="text-center"><p>{error || "Entry not found."}</p><button onClick={() => navigate("/shelf")} className="mt-4 underline">Back to shelf</button></div></div>
@@ -98,15 +102,16 @@ function DetailPage() {
   const poster = movie?.posterPath ? POSTER_URL + movie.posterPath : null
   const details = item.type === "movie" ? [item.releaseYear, item.director && `dir. ${item.director}`, item.genre].filter(Boolean).join("  ·  ") : [item.releaseYear, item.author, item.genre].filter(Boolean).join("  ·  ")
 
-  return <main className="min-h-screen bg-[#766b60] px-4 py-7 font-sans sm:px-8 lg:px-12 lg:py-12"><section className="mx-auto max-w-[1420px] overflow-hidden rounded-[24px] bg-[#fffaf2] text-[#352218] shadow-2xl">
+  return <main className="min-h-screen bg-[#766b60] px-4 py-7 font-sans sm:px-8 lg:px-12 lg:py-12">{rewatchOpen && movie && <RewatchModal item={movie} viewings={viewings} onClose={() => setRewatchOpen(false)} onSave={logViewing} />}{deleteOpen && <DeleteDialog item={item} viewingCount={viewings.length || (movie?.rewatchCount ?? 1)} onCancel={() => setDeleteOpen(false)} onConfirm={remove} />}<section className="mx-auto max-w-[1420px] overflow-hidden rounded-[24px] bg-[#fffaf2] text-[#352218] shadow-2xl">
     <div className="h-6 border-y-4 border-[#3e2114] bg-[repeating-linear-gradient(90deg,#62361f_0_68px,#4d2a1a_68px_136px)]" />
     <div className="px-6 pb-8 pt-8 sm:px-12 lg:px-14">
-      <div className="flex items-center justify-between text-sm uppercase tracking-[.24em] text-[#735f4e]"><span>Entry · No. {String(item.id).padStart(3, "0")}</span><button type="button" onClick={() => navigate("/shelf")} className="grid h-12 w-12 place-items-center rounded-full border border-[#d5bfa5] text-3xl font-light normal-case tracking-normal hover:bg-[#f7ead7]">×</button></div>
+      <div className="flex items-center justify-between text-sm uppercase tracking-[.24em] text-[#735f4e]"><span>Catalog card · No. {String(item.id).padStart(3, "0")}</span><div className="relative flex gap-3"><button type="button" onClick={() => setMenuOpen((open) => !open)} className="grid h-12 w-12 place-items-center rounded-full border border-[#d5bfa5] text-2xl font-light normal-case tracking-normal hover:bg-[#f7ead7]">…</button>{menuOpen && <div className="absolute right-15 top-14 z-30 w-64 overflow-hidden rounded-xl border border-[#decdb8] bg-white p-2 text-left normal-case tracking-normal shadow-xl"><button onClick={() => { setEditing(true); setMenuOpen(false); }} className="block w-full rounded-lg px-4 py-3 text-left hover:bg-[#fbf4ea]">✎ &nbsp; Edit entry</button>{movie && <button onClick={() => { setRewatchOpen(true); setMenuOpen(false); }} className="block w-full rounded-lg px-4 py-3 text-left hover:bg-[#fbf4ea]">↻ &nbsp; Watched it again</button>}<button onClick={() => { setDeleteOpen(true); setMenuOpen(false); }} className="mt-1 block w-full border-t border-[#eadfce] px-4 py-3 text-left font-semibold text-[#b4442a] hover:bg-[#fff6f2]">▢ &nbsp; Delete entry…</button></div>}<button type="button" onClick={() => navigate("/shelf")} className="grid h-12 w-12 place-items-center rounded-full border border-[#d5bfa5] text-3xl font-light normal-case tracking-normal hover:bg-[#f7ead7]">×</button></div></div>
       {error && <p className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
       <div className="mt-6 grid gap-10 lg:grid-cols-[410px_minmax(0,1fr)] lg:gap-14">
         <aside><div className="rounded-lg border-[16px] border-[#4d2b1b] bg-[#8e603a] p-3 shadow-[0_12px_16px_-10px_rgba(44,24,13,.8)]"><div className="relative aspect-[.69] overflow-hidden bg-[#efd0a4]"><span className="absolute left-1/2 top-0 z-10 h-4 w-36 -translate-x-1/2 rounded-b-sm bg-[#fff2cf]" />{poster ? <img src={poster} alt={item.title + " poster"} className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center border-2 border-dashed border-[#a68462] p-8 text-center text-[#6a513d]"><span className="text-3xl">▧</span><span className="mt-3 font-serif text-lg">{item.title}</span><span className="mt-1 text-sm">poster not added</span></div>}<span className="absolute right-4 top-8 -rotate-6 rounded bg-[#fff9e9] px-4 py-2 font-hand text-sm shadow-md">{movie?.sumUpInOneWord || "kept"}</span></div></div>
-          <div className="mt-6 grid grid-cols-2 overflow-hidden rounded-xl border border-[#d5bfa5]"><div className="border-r border-dashed border-[#d5bfa5] p-4"><p className="text-xs font-bold uppercase tracking-[.16em] text-[#715e4d]">{movie ? "Finished watching" : "Finished reading"}</p><p className="mt-2 font-serif text-2xl">{formatCompletionDate(item)}</p></div><div className="p-4"><p className="text-xs font-bold uppercase tracking-[.16em] text-[#715e4d]">Where</p><p className="mt-2 font-serif text-2xl">{movie?.whereWatched || "—"}</p></div></div>
-          <div className="mt-6 flex items-center gap-3 text-[#654a39]"><span className="grid h-10 w-10 place-items-center rounded-full bg-[#b4442a] text-lg text-white">再</span><span>{item.status === "done" ? "Shelved · finished" : item.status === "in_progress" ? "On the nightstand · in progress" : "On the nightstand · queued"}</span></div></aside>
+          <div className="mt-6 grid grid-cols-2 overflow-hidden rounded-xl border border-[#d5bfa5]"><div className="border-r border-dashed border-[#d5bfa5] p-4"><p className="text-xs font-bold uppercase tracking-[.16em] text-[#715e4d]">{movie ? "Last watched" : "Finished reading"}</p><p className="mt-2 font-serif text-2xl">{formatCompletionDate(item)}</p></div><div className="p-4"><p className="text-xs font-bold uppercase tracking-[.16em] text-[#715e4d]">Where</p><p className="mt-2 font-serif text-2xl">{movie?.whereWatched || "—"}</p></div></div>
+          {movie && <section className="mt-6 border-l border-[#d6a27c] pl-4"><div className="flex items-center justify-between"><p className="text-xs font-bold uppercase tracking-[.16em] text-[#715e4d]">Viewings · {movie.rewatchCount ?? 1}</p><button onClick={() => setRewatchOpen(true)} className="text-sm text-[#b4442a] underline">+ Add</button></div><div className="mt-3 space-y-4">{viewings.map((viewing, index) => <div key={viewing.id} className="relative border-l border-[#d9cbb9] pl-4"><span className={`absolute -left-[5px] top-1 h-2.5 w-2.5 rounded-full ${index === 0 ? "bg-[#b4442a]" : "border-2 border-[#b4442a] bg-[#fffaf2]"}`} /><div className="flex justify-between text-sm"><span>{formatDate(viewing.watchedOn)}</span><span className="text-[#b4442a]">{"★".repeat(viewing.rating)}{"☆".repeat(5-viewing.rating)}</span></div>{viewing.tag && <div className="mt-1"><TagLabel>{viewing.tag}</TagLabel></div>}{viewing.note && <p className="mt-1 text-sm text-[#654a39]">{viewing.note}</p>}</div>)}</div></section>}
+          <div className="mt-6 flex items-center gap-3 text-[#654a39]"><span className="grid h-10 w-10 place-items-center rounded-full bg-[#b4442a] text-lg text-white">再</span><span>{item.status === "done" ? "In collection · finished" : item.status === "in_progress" ? "Queue · in progress" : "Queue · queued"}</span></div></aside>
         <article className="min-w-0"><div className="flex flex-wrap items-end justify-between gap-5"><div><h1 className="font-serif text-5xl leading-none sm:text-6xl lg:text-7xl">{item.title}</h1><div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-lg text-[#6a5647]"><span className="rounded-full bg-[#f6e7c7] px-3 py-1 text-base font-bold text-[#60402e]">{movie?.mediaType === "series" ? "Series" : item.type === "book" ? "Book" : "Movie"}</span><span>{details || "Details to be added"}</span></div></div><Stars rating={shown.rating} editing={editing} onRate={(value) => update("rating", value)} /></div>
           <div className="mt-10 font-hand text-xl leading-8 text-[#564233]">{editing ? <textarea value={draft?.description ?? ""} rows={3} onChange={(event) => update("description", event.target.value)} className="w-full resize-none border-b border-[#dcc8a9] bg-transparent outline-none" /> : item.description || "A story still waiting for its notes."}</div>
           {movie && <div className="mt-8 grid gap-x-10 gap-y-7 sm:grid-cols-2"><LinedField label="Favorite character" value={shownMovie?.favoriteCharacter ?? ""} editing={editing} onChange={(value) => updateMovie("favoriteCharacter", value)} /><LinedField label="Least favorite" value={shownMovie?.leastFavoriteCharacter ?? ""} editing={editing} onChange={(value) => updateMovie("leastFavoriteCharacter", value)} /></div>}
@@ -117,8 +122,10 @@ function DetailPage() {
         </article>
       </div>
     </div>
-    <footer className="flex flex-wrap items-center justify-between gap-4 border-t border-[#dcc8a9] px-6 py-5 text-[#765e4d] sm:px-12 lg:px-14"><p>{item.status === "done" ? "shelved" : "on the nightstand"} · entry {String(item.id).padStart(3, "0")}</p><div className="flex flex-wrap gap-3">{editing ? <><button type="button" onClick={() => { setDraft(item); setEditing(false); setPosterSearch(false) }} className="rounded-full border border-[#d5bfa5] px-6 py-3">Cancel</button><button type="button" onClick={save} className="rounded-full bg-[#b4442a] px-6 py-3 font-bold text-white">Save entry</button></> : <>{item.status === "done" && <div className="relative"><button type="button" onClick={() => setMoveOpen((open) => !open)} className="rounded-full border border-[#d5bfa5] px-6 py-3">Move to Nightstand</button>{moveOpen && <div className="absolute bottom-full right-0 z-20 mb-2 w-60 rounded-xl border border-[#d5bfa5] bg-[#fffaf2] p-2 shadow-xl"><button type="button" onClick={() => moveToNightstand("queued")} className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-[#f7ead7]"><strong>Queued</strong><span className="mt-0.5 block text-xs">I may revisit this later</span></button><button type="button" onClick={() => moveToNightstand("in_progress")} className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-[#f7ead7]"><strong>In progress</strong><span className="mt-0.5 block text-xs">I&apos;m actively revisiting it</span></button></div>}</div>}<button type="button" onClick={() => { setDraft(item); setEditing(true) }} className="rounded-full bg-[#b4442a] px-6 py-3 font-bold text-white">Edit entry</button><button type="button" onClick={remove} className="px-2 text-sm text-[#a84432] underline">Delete</button></>}</div></footer>
+    <footer className="flex flex-wrap items-center justify-between gap-4 border-t border-[#dcc8a9] px-6 py-5 text-[#765e4d] sm:px-12 lg:px-14"><p>{item.status === "done" ? "in your collection" : "in Queue"} · entry {String(item.id).padStart(3, "0")}</p><div className="flex flex-wrap gap-3">{editing ? <><button type="button" onClick={() => { setDraft(item); setEditing(false); setPosterSearch(false) }} className="rounded-full border border-[#d5bfa5] px-6 py-3">Cancel</button><button type="button" onClick={save} className="rounded-full bg-[#b4442a] px-6 py-3 font-bold text-white">Save entry</button></> : <>{movie && <button onClick={() => setRewatchOpen(true)} className="rounded-full bg-[#b4442a] px-6 py-3 font-bold text-white">↻ Watched it again</button>}<button type="button" onClick={() => { setDraft(item); setEditing(true) }} className="rounded-full border border-[#d5bfa5] px-6 py-3">Edit entry</button></>}</div></footer>
   </section></main>
 }
 
 export default DetailPage
+
+function DeleteDialog({ item, viewingCount, onCancel, onConfirm }: { item: Item; viewingCount: number; onCancel: () => void; onConfirm: () => void }) { return <div className="fixed inset-0 z-50 grid place-items-center bg-stone-950/50 p-4 backdrop-blur-sm"><section role="dialog" aria-modal="true" className="w-full max-w-lg overflow-hidden rounded-2xl bg-[#FBFAF7] shadow-2xl"><div className="h-3 bg-[repeating-linear-gradient(90deg,#62361f_0_68px,#4d2a1a_68px_136px)]" /><div className="p-7"><h2 className="font-serif text-3xl">Remove “{item.title}” from your collection?</h2><p className="mt-4 text-sm text-[#654a39]">This can&apos;t be undone. You&apos;ll lose:</p><div className="mt-4 rounded-xl bg-[#f5ebdb] p-4 text-sm text-[#654a39]">• Your review, quote & moments<br />• {viewingCount} viewing{viewingCount === 1 ? "" : "s"}<br />• Its place in your Yearbook stats</div><footer className="mt-7 flex justify-end gap-3"><button onClick={onCancel} className="rounded-full border border-[#d5bfa5] px-5 py-3">Keep it</button><button onClick={onConfirm} className="rounded-full bg-[#b4442a] px-5 py-3 font-semibold text-white">Delete entry</button></footer></div></section></div>; }
