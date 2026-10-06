@@ -18,6 +18,7 @@ function ShelfPage() {
   const [yearFilter, setYearFilter] = useState("All");
   const [genreFilter, setGenreFilter] = useState("All");
   const [ratingFilter, setRatingFilter] = useState("Any");
+  const [rewatchedOnly, setRewatchedOnly] = useState(false);
   const searchQuery = new URLSearchParams(location.search).get("q")?.trim().toLowerCase() ?? "";
 
   useEffect(() => {
@@ -57,17 +58,18 @@ function ShelfPage() {
     if (ratingFilter === "5 stars" && rating !== 5) return false;
     if (ratingFilter === "4+ stars" && rating < 4) return false;
     if (ratingFilter === "Unrated" && rating !== 0) return false;
+    if (rewatchedOnly && (item.rewatchCount ?? 1) < 2) return false;
     return true;
   });
 
   return (
-    <div className="min-h-screen bg-[#fbf2e5] font-sans">
+    <div className="min-h-screen bg-[#FBFAF7] font-sans">
       <Navbar onAdd={() => setShowForm(true)} showForm={showForm} />
       <div className="mx-auto max-w-7xl px-6 py-8 lg:px-10">
         {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
         {showForm && <AddMovieModal onClose={() => setShowForm(false)} onSave={handleAdd} />}
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-5"><div><p className="font-hand text-sm text-[#b4442a]">映画 · watched &amp; kept</p><h1 className="mt-1 font-serif text-5xl">Shelf <span className="text-xl text-[#806858]">{items.filter((item) => item.type === "movie" && item.status === "done").length}</span></h1></div><div className="flex flex-wrap gap-2 text-xs text-[#4b382b]"><FilterMenu label="Type" options={["All", "Movies only", "Series only"]} value={mediaFilter} onChange={setMediaFilter} openFilter={openFilter} setOpenFilter={setOpenFilter} /><FilterMenu label="Year" options={["All", "2026", "2025", "2024", "Earlier"]} value={yearFilter} onChange={setYearFilter} openFilter={openFilter} setOpenFilter={setOpenFilter} /><FilterMenu label="Genre" options={["All", "Comedy", "Drama", "Romance", "Animation"]} value={genreFilter} onChange={setGenreFilter} openFilter={openFilter} setOpenFilter={setOpenFilter} /><FilterMenu label="Rating" options={["Any", "5 stars", "4+ stars", "Unrated"]} value={ratingFilter} onChange={setRatingFilter} openFilter={openFilter} setOpenFilter={setOpenFilter} /></div></div>
-        {loading ? <div className="py-16 text-center text-sm text-gray-400">Loading your shelf...</div> : <>
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-5"><div><p className="font-hand text-sm text-[#b4442a]">映画 · watched &amp; kept</p><h1 className="mt-1 font-serif text-5xl">Collection <span className="text-xl text-[#806858]">{items.filter((item) => item.type === "movie" && item.status === "done").length}</span></h1></div><div className="flex flex-wrap gap-2 text-xs text-[#4b382b]"><FilterMenu label="Type" options={["All", "Movies only", "Series only"]} value={mediaFilter} onChange={setMediaFilter} openFilter={openFilter} setOpenFilter={setOpenFilter} /><FilterMenu label="Year" options={["All", "2026", "2025", "2024", "Earlier"]} value={yearFilter} onChange={setYearFilter} openFilter={openFilter} setOpenFilter={setOpenFilter} /><FilterMenu label="Genre" options={["All", "Comedy", "Drama", "Romance", "Animation"]} value={genreFilter} onChange={setGenreFilter} openFilter={openFilter} setOpenFilter={setOpenFilter} /><FilterMenu label="Rating" options={["Any", "5 stars", "4+ stars", "Unrated"]} value={ratingFilter} onChange={setRatingFilter} openFilter={openFilter} setOpenFilter={setOpenFilter} /><label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-[#d9cbb9] px-3 py-2"><input type="checkbox" checked={rewatchedOnly} onChange={(event) => setRewatchedOnly(event.target.checked)} className="accent-[#b4442a]" />Rewatched</label></div></div>
+        {loading ? <div className="py-16 text-center text-sm text-gray-400">Loading your collection...</div> : <>
           <div className="space-y-10">{Array.from({ length: Math.ceil(filtered.length / 4) }, (_, row) => { const rowItems = filtered.slice(row * 4, row * 4 + 4); return <div key={row}><div className="grid grid-cols-2 gap-x-5 sm:grid-cols-3 lg:grid-cols-4">{rowItems.map((item, index) => <FilmPoster key={item.id} item={item as MovieEntry} index={row * 4 + index} onClick={() => navigate(`/item/${item.id}`)} />)}</div><div className="-mx-2 h-3 border-y-2 border-[#2d1a11] bg-[#593522] shadow-[0_6px_7px_-4px_rgba(54,31,18,.9)]" /><div className="grid grid-cols-2 gap-x-5 sm:grid-cols-3 lg:grid-cols-4">{rowItems.map((item) => <FilmMetadata key={item.id} item={item as MovieEntry} onClick={() => navigate(`/item/${item.id}`)} />)}</div></div>; })}</div>
           {!filtered.length && <div className="py-16 text-center text-sm text-gray-400">Nothing here yet.</div>}
         </>}

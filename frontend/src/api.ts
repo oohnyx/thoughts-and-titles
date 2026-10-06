@@ -1,4 +1,4 @@
-import type { BaseItem, BookSearchResult, Item, MovieEntry, MovieSearchResult } from "./types"
+import type { BaseItem, BookSearchResult, Item, MovieEntry, MovieSearchResult, Viewing } from "./types"
 
 // this is the base URL of our Flask backend
 // every API call will start with this
@@ -22,6 +22,7 @@ type ApiItem = Omit<BaseItem, "description" | "review"> & {
     poster_path: string | null
     release_year: number | null
     media_type: "movie" | "series" | null
+    rewatch_count: number | null
     author: string | null
     publisher: string | null
     google_book_id: string | null
@@ -65,6 +66,7 @@ function normalizeItem(item: ApiItem): Item {
             posterPath: item.poster_path ?? undefined,
             releaseYear: item.release_year ?? undefined,
             mediaType: item.media_type ?? "movie",
+            rewatchCount: item.rewatch_count ?? 1,
         }
     }
 
@@ -223,4 +225,17 @@ export async function deleteItem(id: number) {
 
     if (!response.ok) throw new Error("Failed to delete item")
     return response.json()
+}
+
+type ApiViewing = { id: number; item_id: number; watched_on: string; rating: number; tag: string | null; note: string | null }
+function normalizeViewing(viewing: ApiViewing): Viewing { return { id: viewing.id, itemId: viewing.item_id, watchedOn: viewing.watched_on, rating: viewing.rating, tag: viewing.tag ?? undefined, note: viewing.note ?? undefined } }
+export async function fetchViewings(itemId: number): Promise<Viewing[]> {
+    const response = await fetch(`${BASE_URL}/items/${itemId}/viewings`)
+    if (!response.ok) throw new Error("Failed to fetch viewings")
+    return (await response.json() as ApiViewing[]).map(normalizeViewing)
+}
+export async function addViewing(itemId: number, data: { watchedOn: string; rating: number; tag?: string; note?: string }) {
+    const response = await fetch(`${BASE_URL}/items/${itemId}/viewings`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) })
+    if (!response.ok) throw new Error("Failed to add viewing")
+    return normalizeItem(await response.json() as ApiItem)
 }

@@ -22,6 +22,7 @@ def migrate_db(conn):
         "poster_path": "TEXT",
         "release_year": "INTEGER",
         "media_type": "TEXT",
+        "rewatch_count": "INTEGER NOT NULL DEFAULT 1",
         "author": "TEXT",
         "publisher": "TEXT",
         "open_library_id": "TEXT",
@@ -89,5 +90,17 @@ def init_db():
         """
     )
     migrate_db(conn)
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS viewings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            item_id INTEGER NOT NULL,
+            watched_on TEXT NOT NULL,
+            rating INTEGER NOT NULL,
+            tag TEXT,
+            note TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY(item_id) REFERENCES items(id) ON DELETE CASCADE
+        )"""
+    )
     conn.commit()
     conn.close()

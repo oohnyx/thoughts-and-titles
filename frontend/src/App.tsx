@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom"
 import ShelfPage from "./pages/ShelfPage";
 import DetailPage from "./pages/DetailPage";
 import HomePage from "./pages/HomePage";
-import NightstandPage from "./pages/NightstandPage";
+import QueuePage from "./pages/NightstandPage";
 import YearbookPage from "./pages/YearbookPage";
 
 function App() {
@@ -14,7 +14,7 @@ function App() {
         {/* when URL is exactly "/", show ShelfPage */}
         <Route path="/" element={<HomePage />} />
         <Route path="/shelf" element={<ShelfPage />} />
-        <Route path="/nightstand" element={<NightstandPage />} />
+        <Route path="/queue" element={<QueuePage />} />
         <Route path="/yearbook" element={<YearbookPage />} />
 
         {/* :id part is a variable, read using useParams() */}

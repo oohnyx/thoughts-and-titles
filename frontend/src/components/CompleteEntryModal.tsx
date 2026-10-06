@@ -36,7 +36,7 @@ function CompleteEntryModal({ item, onClose, onComplete }: Props) {
       <label className="mt-6 block text-sm font-semibold">Your review <span className="text-[#b4442a]">*</span><textarea autoFocus value={review} onChange={(event) => setReview(event.target.value)} rows={5} placeholder="What did you think?" className="mt-2 block w-full resize-none rounded-xl border border-[#d9cfbd] bg-white px-3 py-3 font-normal outline-none focus:border-[#64844e]" /></label>
       <CompletionDateField value={date} onChange={setDate} />
       {error && <p className="mt-3 text-sm text-[#b44934]">{error}</p>}
-      <footer className="mt-6 flex flex-wrap justify-end gap-3"><button type="button" onClick={onClose} disabled={saving} className="rounded-full border border-[#d9cfbd] px-5 py-3 text-sm">Keep on nightstand</button><button type="button" disabled={saving} onClick={submit} className="rounded-full bg-[#b4442a] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">{saving ? "Placing…" : "Place on the shelf ↗"}</button></footer>
+      <footer className="mt-6 flex flex-wrap justify-end gap-3"><button type="button" onClick={onClose} disabled={saving} className="rounded-full border border-[#d9cfbd] px-5 py-3 text-sm">Keep in Queue</button><button type="button" disabled={saving} onClick={submit} className="rounded-full bg-[#b4442a] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">{saving ? "Placing…" : "Add to collection ↗"}</button></footer>
     </div>
   </div>;
 }

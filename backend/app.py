@@ -38,6 +38,7 @@ MOVIE_FIELDS = {
     "tmdbId": "tmdb_id",
     "posterPath": "poster_path",
     "releaseYear": "release_year",
+    "rewatchCount": "rewatch_count",
 }
 
 COMPLETION_DATE_FIELDS = {
@@ -382,6 +383,38 @@ def get_item(item_id):
         return jsonify({"error": "Item not found"}), 404
 
     return jsonify(dict(item))
+
+@app.route("/items/<int:item_id>/viewings", methods=["GET"])
+def get_viewings(item_id):
+    conn = get_db()
+    viewings = conn.execute("SELECT * FROM viewings WHERE item_id = ? ORDER BY watched_on DESC, id DESC", (item_id,)).fetchall()
+    conn.close()
+    return jsonify([dict(viewing) for viewing in viewings])
+
+@app.route("/items/<int:item_id>/viewings", methods=["POST"])
+def add_viewing(item_id):
+    data = request.get_json() or {}
+    if not data.get("watchedOn") or not isinstance(data.get("rating"), int):
+        return jsonify({"error": "A date and rating are required."}), 400
+    conn = get_db()
+    item = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
+    if item is None:
+        conn.close()
+        return jsonify({"error": "Item not found"}), 404
+    existing_viewings = conn.execute("SELECT COUNT(*) AS count FROM viewings WHERE item_id = ?", (item_id,)).fetchone()["count"]
+    if existing_viewings == 0:
+        original_date = item["date_watched"] or (f"{item['completed_year']:04d}-{item['completed_month']:02d}-{item['completed_day']:02d}" if item["completed_year"] and item["completed_month"] and item["completed_day"] else data["watchedOn"])
+        conn.execute("INSERT INTO viewings (item_id, watched_on, rating, tag, note) VALUES (?, ?, ?, ?, ?)", (item_id, original_date, item["rating"] or 0, item["sum_up_in_one_word"], None))
+    conn.execute("INSERT INTO viewings (item_id, watched_on, rating, tag, note) VALUES (?, ?, ?, ?, ?)", (item_id, data["watchedOn"], data["rating"], data.get("tag") or None, data.get("note") or None))
+    completed_year, completed_month, completed_day = map(int, data["watchedOn"].split("-"))
+    conn.execute("""UPDATE items SET rewatch_count = COALESCE(rewatch_count, 1) + 1,
+        rating = ?, sum_up_in_one_word = COALESCE(?, sum_up_in_one_word),
+        completed_year = ?, completed_month = ?, completed_day = ?, completed_date_precision = 'exact'
+        WHERE id = ?""", (data["rating"], data.get("tag") or None, completed_year, completed_month, completed_day, item_id))
+    conn.commit()
+    updated = conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
+    conn.close()
+    return jsonify(dict(updated)), 201
 
 
 if __name__ == "__main__":
